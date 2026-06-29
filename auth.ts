@@ -9,6 +9,7 @@ const ALLOWED_EMAILS = new Set([
   "lisa@balancedcomfort.com",
   "jakewright@balancedcomfort.com",
   "mike@callsailors.com",
+  "cwright@balancedcomfort.com",
 ])
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
