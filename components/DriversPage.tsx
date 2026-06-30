@@ -42,6 +42,7 @@ export default function DriversPage({ company }: { company: Company }) {
 
   const [drivers, setDrivers] = useState<Driver[]>([])
   const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
   const [showAddForm, setShowAddForm] = useState(false)
   const [addForm, setAddForm] = useState(EMPTY_FORM)
   const [savingAdd, setSavingAdd] = useState(false)
@@ -110,6 +111,11 @@ export default function DriversPage({ company }: { company: Company }) {
 
   const expired  = drivers.filter(d => dlStatus(d.dlExpiration) === 'expired')
   const expiring = drivers.filter(d => dlStatus(d.dlExpiration) === 'expiring')
+
+  const filteredDrivers = drivers.filter(d => {
+    const q = search.toLowerCase()
+    return !q || d.name.toLowerCase().includes(q) || d.dlNumber.toLowerCase().includes(q)
+  })
 
   const inputCls = 'block w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#002D5B]'
 
@@ -190,6 +196,20 @@ export default function DriversPage({ company }: { company: Company }) {
           </form>
         )}
 
+        {/* Search */}
+        {!loading && drivers.length > 0 && (
+          <div className="bg-white rounded-xl border border-gray-200 p-4 flex gap-3 flex-wrap items-center">
+            <input
+              type="text"
+              placeholder="Search drivers..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="flex-1 min-w-44 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#002D5B]"
+            />
+            <span className="text-xs text-gray-400 shrink-0">{filteredDrivers.length} of {drivers.length}</span>
+          </div>
+        )}
+
         {/* Table */}
         {loading ? (
           <div className="flex items-center justify-center h-48">
@@ -207,6 +227,10 @@ export default function DriversPage({ company }: { company: Company }) {
               + Add first driver
             </button>
           </div>
+        ) : filteredDrivers.length === 0 ? (
+          <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
+            <p className="text-gray-400 text-lg mb-1">No drivers match &quot;{search}&quot;</p>
+          </div>
         ) : (
           <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
             <table className="w-full">
@@ -220,7 +244,7 @@ export default function DriversPage({ company }: { company: Company }) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {drivers.map((driver, i) => {
+                {filteredDrivers.map((driver, i) => {
                   const status = dlStatus(driver.dlExpiration)
                   const { label, className } = DL_STATUS_CONFIG[status]
                   const days = daysUntil(driver.dlExpiration)

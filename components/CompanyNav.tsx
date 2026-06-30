@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import type { Company } from '@/lib/types'
+import { signOutAction } from '@/app/actions'
 
 const COMPANY_CONFIG = {
   'balanced-comfort': { name: 'Balanced Comfort', bgColor: 'bg-[#002D5B]', textColor: 'text-[#002D5B]' },
@@ -56,6 +57,14 @@ export default function CompanyNav({ company }: { company: Company }) {
         >
           + Add Asset
         </Link>
+        <form action={signOutAction}>
+          <button
+            type="submit"
+            className="shrink-0 px-3 py-1 rounded-full text-sm font-medium text-white/80 hover:text-white hover:bg-white/20 transition-colors whitespace-nowrap"
+          >
+            Sign out
+          </button>
+        </form>
       </div>
     </header>
   )

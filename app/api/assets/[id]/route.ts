@@ -56,6 +56,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
   data.assets.splice(idx, 1)
   data.maintenance = data.maintenance.filter(m => m.assetId !== id)
+  data.inspections = data.inspections.filter(i => i.assetId !== id)
   await writeCompanyData(company, data)
 
   return NextResponse.json({ success: true })
