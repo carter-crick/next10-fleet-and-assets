@@ -202,6 +202,9 @@ export async function POST(req: NextRequest) {
     const rawId = col(row, colMap, 'id')
     const id    = rawId || crypto.randomUUID()
 
+    const totalAmount = parseNum(col(row, colMap, 'totalAmount')) ?? 0
+    if (totalAmount <= 0) { skipped++; matched--; continue }
+
     const txn: WexTransaction = {
       id,
       cardNumber,
@@ -212,7 +215,7 @@ export async function POST(req: NextRequest) {
       productType:    col(row, colMap, 'productType')    || undefined,
       gallons:        parseNum(col(row, colMap, 'gallons')),
       pricePerGallon: parseNum(col(row, colMap, 'pricePerGallon')),
-      totalAmount:    parseNum(col(row, colMap, 'totalAmount')) ?? 0,
+      totalAmount,
       odometer:       parseNum(col(row, colMap, 'odometer')),
       receivedAt:     new Date().toISOString(),
     }
