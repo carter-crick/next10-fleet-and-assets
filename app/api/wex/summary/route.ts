@@ -143,13 +143,15 @@ export async function GET(req: NextRequest) {
       if (mpg < 4 || mpg > 50) continue          // skip physically impossible values
       series.push({ date: curr.date, mpg, gallons: curr.gallons, merchantName: curr.merchantName ?? '' })
     }
-    if (series.length < 3) continue  // need enough data for a meaningful baseline
 
-    const avgMpg = median(series.map(p => p.mpg))
-
-    // Flag recent points outside ±15%
-    for (const pt of series) {
-      if (new Date(pt.date) < periodStart) continue
+    // Rolling 5-point window: each fill-up is compared against the median of
+    // the 5 preceding fill-ups so the baseline stays local and recent.
+    const WINDOW = 5
+    for (let i = WINDOW; i < series.length; i++) {
+      if (new Date(series[i].date) < periodStart) continue
+      const window = series.slice(i - WINDOW, i).map(p => p.mpg)
+      const avgMpg = median(window)
+      const pt = series[i]
       const pct = ((pt.mpg - avgMpg) / avgMpg) * 100
       if (Math.abs(pct) > 15) {
         mpgAnomalies.push({
