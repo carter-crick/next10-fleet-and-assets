@@ -106,7 +106,11 @@ export async function GET(req: NextRequest) {
 
   // ── Alert: non-unleaded ──────────────────────────────────────────────────────
   const nonUnleaded: NonUnleadedAlert[] = periodTxns
-    .filter(t => t.productType && !t.productType.toLowerCase().includes('unleaded'))
+    .filter(t => {
+      if (!t.productType) return false
+      const p = t.productType.toLowerCase()
+      return !p.includes('unleaded') && !p.startsWith('unl')
+    })
     .map(t => ({
       vehicleName: byCard.get(t.cardNumber)?.name ?? t.cardNumber,
       assetId:     byCard.get(t.cardNumber)?.id   ?? '',
