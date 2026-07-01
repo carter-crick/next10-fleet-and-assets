@@ -5,6 +5,7 @@ import Link from 'next/link'
 import CompanyNav from './CompanyNav'
 import StatusBadge from './StatusBadge'
 import type { Asset, AssetType, Company } from '@/lib/types'
+import type { FuelSummary } from '@/app/api/wex/summary/route'
 
 const TYPE_CONFIG: Record<AssetType, { label: string; icon: string }> = {
   vehicle:   { label: 'Vehicles',  icon: '🚛' },
@@ -28,6 +29,8 @@ function daysUntil(dateStr: string) {
 export default function FleetDashboard({ company }: { company: Company }) {
   const [assets, setAssets] = useState<Asset[]>([])
   const [loading, setLoading] = useState(true)
+  const [fuel, setFuel] = useState<FuelSummary | null>(null)
+  const [fuelExpanded, setFuelExpanded] = useState<'nonUnleaded' | 'mpg' | 'odo' | null>(null)
 
   const companyColor = company === 'balanced-comfort' ? '#002D5B' : '#0f766e'
 
@@ -35,6 +38,9 @@ export default function FleetDashboard({ company }: { company: Company }) {
     fetch(`/api/assets?company=${company}`)
       .then(r => r.json())
       .then(data => { setAssets(data); setLoading(false) })
+    fetch(`/api/wex/summary?company=${company}&days=30`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => data && setFuel(data))
   }, [company])
 
   if (loading) {
@@ -185,6 +191,130 @@ export default function FleetDashboard({ company }: { company: Company }) {
           </div>
         </div>
 
+        {/* ── Fuel Summary Tile ───────────────────────────────────────────────── */}
+        {fuel && fuel.totals.transactions > 0 && (() => {
+          const { totals, alerts } = fuel
+          const alertCount = alerts.nonUnleaded.length + alerts.mpgAnomalies.length + alerts.odometerDiscrepancies.length
+          return (
+            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+              {/* Header */}
+              <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between flex-wrap gap-3">
+                <div className="flex items-center gap-3">
+                  <h2 className="text-sm font-semibold text-gray-700">Fuel — Last 30 Days</h2>
+                  <Link href={`/${company}/fuel`} className="text-xs text-gray-400 hover:text-gray-600">Import CSV →</Link>
+                </div>
+                {alertCount > 0 && (
+                  <div className="flex items-center gap-2">
+                    {alerts.nonUnleaded.length > 0 && (
+                      <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs font-semibold rounded-full">
+                        {alerts.nonUnleaded.length} non-unleaded
+                      </span>
+                    )}
+                    {alerts.mpgAnomalies.length > 0 && (
+                      <span className="px-2 py-0.5 bg-orange-100 text-orange-700 text-xs font-semibold rounded-full">
+                        {alerts.mpgAnomalies.length} MPG {alerts.mpgAnomalies.length === 1 ? 'alert' : 'alerts'}
+                      </span>
+                    )}
+                    {alerts.odometerDiscrepancies.length > 0 && (
+                      <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 text-xs font-semibold rounded-full">
+                        {alerts.odometerDiscrepancies.length} odo {alerts.odometerDiscrepancies.length === 1 ? 'mismatch' : 'mismatches'}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Stats */}
+              <div className="px-5 py-4 grid grid-cols-2 sm:grid-cols-4 gap-4 border-b border-gray-100">
+                <FuelStat label="Spend" value={`$${totals.spend.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} />
+                <FuelStat label="Gallons" value={totals.gallons.toLocaleString('en-US', { maximumFractionDigits: 0 })} />
+                <FuelStat label="Avg $/Gal" value={`$${totals.avgCostPerGallon.toFixed(3)}`} />
+                <FuelStat label="Vehicles" value={`${totals.vehicles} of ${assets.filter(a => a.type === 'vehicle' && a.fuelCardNumber).length}`} />
+              </div>
+
+              {/* Alert sections */}
+              {alertCount === 0 && (
+                <div className="px-5 py-3">
+                  <p className="text-xs text-gray-400">No fuel alerts in the last 30 days.</p>
+                </div>
+              )}
+
+              {/* Non-unleaded */}
+              {alerts.nonUnleaded.length > 0 && (
+                <AlertSection
+                  label="Non-unleaded fuel"
+                  count={alerts.nonUnleaded.length}
+                  colorClass="bg-red-50 border-red-100"
+                  labelColor="text-red-700"
+                  icon="⛽"
+                  expanded={fuelExpanded === 'nonUnleaded'}
+                  onToggle={() => setFuelExpanded(e => e === 'nonUnleaded' ? null : 'nonUnleaded')}
+                >
+                  {alerts.nonUnleaded.slice(0, fuelExpanded === 'nonUnleaded' ? 999 : 3).map((a, i) => (
+                    <AlertRow key={i} href={`/${company}/${a.assetId}`} company={company}>
+                      <span className="font-medium text-gray-900 truncate">{a.vehicleName}</span>
+                      <span className="text-red-700 font-medium">{a.productType}</span>
+                      <span className="text-gray-500 truncate">{a.merchantName}</span>
+                      <span className="text-gray-400 shrink-0">{fmtDate(a.date)}</span>
+                      <span className="text-gray-700 font-medium shrink-0">${a.totalAmount.toFixed(2)}</span>
+                    </AlertRow>
+                  ))}
+                </AlertSection>
+              )}
+
+              {/* MPG anomalies */}
+              {alerts.mpgAnomalies.length > 0 && (
+                <AlertSection
+                  label="MPG outside normal range (±15%)"
+                  count={alerts.mpgAnomalies.length}
+                  colorClass="bg-orange-50 border-orange-100"
+                  labelColor="text-orange-700"
+                  icon="📊"
+                  expanded={fuelExpanded === 'mpg'}
+                  onToggle={() => setFuelExpanded(e => e === 'mpg' ? null : 'mpg')}
+                >
+                  {alerts.mpgAnomalies.slice(0, fuelExpanded === 'mpg' ? 999 : 3).map((a, i) => (
+                    <AlertRow key={i} href={`/${company}/${a.assetId}`} company={company}>
+                      <span className="font-medium text-gray-900 truncate">{a.vehicleName}</span>
+                      <span className={`font-semibold ${a.direction === 'low' ? 'text-orange-700' : 'text-blue-600'}`}>
+                        {a.actualMpg} mpg
+                      </span>
+                      <span className="text-gray-400">avg {a.avgMpg} mpg</span>
+                      <span className={`font-medium shrink-0 ${a.pctDiff < 0 ? 'text-orange-600' : 'text-blue-600'}`}>
+                        {a.pctDiff > 0 ? '+' : ''}{a.pctDiff}%
+                      </span>
+                      <span className="text-gray-400 shrink-0">{fmtDate(a.date)}</span>
+                    </AlertRow>
+                  ))}
+                </AlertSection>
+              )}
+
+              {/* Odometer discrepancies */}
+              {alerts.odometerDiscrepancies.length > 0 && (
+                <AlertSection
+                  label="Odometer mismatch vs GPS"
+                  count={alerts.odometerDiscrepancies.length}
+                  colorClass="bg-yellow-50 border-yellow-100"
+                  labelColor="text-yellow-700"
+                  icon="🛣️"
+                  expanded={fuelExpanded === 'odo'}
+                  onToggle={() => setFuelExpanded(e => e === 'odo' ? null : 'odo')}
+                >
+                  {alerts.odometerDiscrepancies.slice(0, fuelExpanded === 'odo' ? 999 : 3).map((a, i) => (
+                    <AlertRow key={i} href={`/${company}/${a.assetId}`} company={company}>
+                      <span className="font-medium text-gray-900 truncate">{a.vehicleName}</span>
+                      <span className="text-gray-700">WEX <span className="font-medium">{a.wexOdometer.toLocaleString()}</span></span>
+                      <span className="text-gray-500">GPS <span className="font-medium">{a.gpsOdometer.toLocaleString()}</span></span>
+                      <span className="text-yellow-700 font-semibold shrink-0">Δ {a.difference.toLocaleString()} mi</span>
+                      <span className="text-gray-400 shrink-0">{fmtDate(a.date)}</span>
+                    </AlertRow>
+                  ))}
+                </AlertSection>
+              )}
+            </div>
+          )
+        })()}
+
         {assets.length === 0 && (
           <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
             <p className="text-gray-400 text-lg mb-1">No assets yet</p>
@@ -243,6 +373,50 @@ export default function FleetDashboard({ company }: { company: Company }) {
       </main>
     </div>
   )
+}
+
+function FuelStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-xs text-gray-400 mb-0.5">{label}</p>
+      <p className="text-xl font-bold text-gray-900 tabular-nums">{value}</p>
+    </div>
+  )
+}
+
+function AlertSection({
+  label, count, colorClass, labelColor, icon, expanded, onToggle, children,
+}: {
+  label: string; count: number; colorClass: string; labelColor: string
+  icon: string; expanded: boolean; onToggle: () => void; children: React.ReactNode
+}) {
+  return (
+    <div className={`border-t ${colorClass}`}>
+      <button
+        onClick={onToggle}
+        className="w-full px-5 py-2.5 flex items-center gap-2 text-left hover:opacity-80 transition-opacity"
+      >
+        <span className="text-sm">{icon}</span>
+        <span className={`text-xs font-semibold ${labelColor}`}>{label}</span>
+        <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${labelColor} bg-white/60`}>{count}</span>
+        <span className="ml-auto text-xs text-gray-400">{expanded ? '▲ less' : '▼ more'}</span>
+      </button>
+      <div className="px-5 pb-3 space-y-1.5">{children}</div>
+    </div>
+  )
+}
+
+function AlertRow({ href, company, children }: { href: string; company: string; children: React.ReactNode }) {
+  void company
+  return (
+    <Link href={href} className="flex items-center gap-3 py-1.5 px-3 -mx-3 rounded-lg hover:bg-white/70 transition-colors flex-wrap">
+      {children}
+    </Link>
+  )
+}
+
+function fmtDate(dateStr: string) {
+  return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
 function StatusRow({ label, count, total, colorClass }: {
