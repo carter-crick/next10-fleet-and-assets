@@ -564,7 +564,7 @@ export default function AssetDetailPage({ company, id }: { company: Company; id:
                       <InfoRow label="At Mileage" value={`${asset.lastServiceMileage.toLocaleString()} mi`} />
                     )}
                     <InfoRow
-                      label="Next Due"
+                      label="Next Service Due"
                       value={asset.lastServiceMileage != null
                         ? `${(asset.lastServiceMileage + 6000).toLocaleString()} mi`
                         : undefined}
@@ -574,6 +574,23 @@ export default function AssetDetailPage({ company, id }: { company: Company; id:
                   <InfoRow label="Next Due" value={formatDate(asset.nextServiceDue)} />
                 )}
               </div>
+              {isVehicle && (() => {
+                const lastInsp = [...inspections].sort((a, b) => b.date.localeCompare(a.date))[0]
+                if (!lastInsp) return null
+                const nextInspDate = new Date(lastInsp.date + 'T00:00:00')
+                nextInspDate.setDate(nextInspDate.getDate() + 90)
+                const nextInspStr = nextInspDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                const isOverdue = nextInspDate < new Date()
+                return (
+                  <div className="grid grid-cols-2 gap-4 pt-3 border-t border-gray-100">
+                    <InfoRow label="Last Inspection" value={formatDate(lastInsp.date)} />
+                    <div>
+                      <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-0.5">Next Inspection Due</p>
+                      <p className={`text-sm font-medium ${isOverdue ? 'text-red-600' : 'text-gray-800'}`}>{nextInspStr}</p>
+                    </div>
+                  </div>
+                )
+              })()}
             </div>
 
             {/* Purchase card */}
