@@ -1,34 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
-import fs from 'fs/promises'
-import path from 'path'
+import { eq } from 'drizzle-orm'
+import { getDb } from '@/lib/db'
+import { assets, gpsLocations } from '@/lib/db/schema'
 import type { GpsLocation } from '@/lib/types'
 
-const GPS_FILE     = path.join(process.cwd(), 'data', 'gps-locations.json')
-const BC_FILE      = path.join(process.cwd(), 'data', 'balanced-comfort.json')
-const SAILORS_FILE = path.join(process.cwd(), 'data', 'sailors-air.json')
-
-async function readCache(): Promise<Record<string, GpsLocation>> {
-  try { return JSON.parse(await fs.readFile(GPS_FILE, 'utf-8')) } catch { return {} }
-}
-async function writeCache(data: Record<string, GpsLocation>) {
-  await fs.writeFile(GPS_FILE, JSON.stringify(data, null, 2), 'utf-8')
-}
-
 async function syncOdometerToVehicle(deviceId: string, odometer: number) {
-  for (const file of [BC_FILE, SAILORS_FILE]) {
-    try {
-      const data = JSON.parse(await fs.readFile(file, 'utf-8'))
-      const asset = data.assets?.find(
-        (a: { type: string; oneStepDeviceId?: string; mileage?: number }) =>
-          a.type === 'vehicle' && a.oneStepDeviceId === deviceId
-      )
-      if (asset && (!asset.mileage || odometer > asset.mileage)) {
-        asset.mileage   = odometer
-        asset.updatedAt = new Date().toISOString()
-        await fs.writeFile(file, JSON.stringify(data, null, 2), 'utf-8')
-        return
-      }
-    } catch { /* file may not exist */ }
+  const db = getDb()
+  const [asset] = await db.select({ id: assets.id, mileage: assets.mileage })
+    .from(assets).where(eq(assets.oneStepDeviceId, deviceId)).limit(1)
+  if (asset && (!asset.mileage || odometer > asset.mileage)) {
+    await db.update(assets)
+      .set({ mileage: odometer, updatedAt: new Date().toISOString() })
+      .where(eq(assets.id, asset.id))
   }
 }
 
@@ -42,7 +25,6 @@ function parseDevicePoint(points: Record<string, unknown>[], deviceId: string): 
 
   const detail   = (point.device_point_detail ?? {}) as Record<string, unknown>
   const speedObj = (detail.speed ?? {})              as Record<string, unknown>
-  // detail.speed.value in km/h; fall back to top-level point.speed (also km/h)
   const rawSpeedKmh = speedObj.value != null ? Number(speedObj.value)
     : point.speed != null ? Number(point.speed) : undefined
   const speedMph = rawSpeedKmh != null ? Math.round(rawSpeedKmh * 0.621371 * 10) / 10 : undefined
@@ -57,9 +39,7 @@ function parseDevicePoint(points: Record<string, unknown>[], deviceId: string): 
   const bestOdoVal = bestOdo.value != null ? Number(bestOdo.value) : undefined
   const odometerMi = hwVal != null
     ? (hwUnit === 'mi' ? Math.round(hwVal) : Math.round(hwVal * 0.621371))
-    : bestOdoVal != null
-      ? Math.round(bestOdoVal * 0.621371)
-      : undefined
+    : bestOdoVal != null ? Math.round(bestOdoVal * 0.621371) : undefined
 
   const counterList = Array.isArray(state.counter_list)
     ? (state.counter_list as Array<{ key: string; val: number }>)
@@ -67,7 +47,7 @@ function parseDevicePoint(points: Record<string, unknown>[], deviceId: string): 
   const ehEntry    = counterList.find(c => c.key === 'eh')
   const engineHours = ehEntry ? Math.round(ehEntry.val * 10) / 10 : undefined
 
-  const driveStatus = String(state.drive_status  ?? '') || undefined
+  const driveStatus = String(state.drive_status ?? '') || undefined
   const fuelPercent = state.fuel_percent != null ? Number(state.fuel_percent)
     : (point.device_point_detail as Record<string,unknown> | undefined)?.fuel_percent != null
       ? Number((point.device_point_detail as Record<string,unknown>).fuel_percent)
@@ -91,6 +71,7 @@ function parseDevicePoint(points: Record<string, unknown>[], deviceId: string): 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ deviceId: string }> }) {
   const { deviceId } = await params
   const apiKey = process.env.ONESTEP_API_KEY
+  const db = getDb()
 
   if (apiKey) {
     try {
@@ -102,21 +83,30 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ dev
         const points: Record<string, unknown>[] = await res.json()
         const loc = parseDevicePoint(Array.isArray(points) ? points : [points], deviceId)
         if (loc) {
-          const cache = await readCache()
-          cache[deviceId] = loc
-          await writeCache(cache).catch(() => {})
+          await db.insert(gpsLocations).values(loc).onConflictDoUpdate({
+            target: gpsLocations.deviceId,
+            set: {
+              lat: loc.lat, lng: loc.lng,
+              speed:       loc.speed       ?? null,
+              heading:     loc.heading     ?? null,
+              address:     loc.address     ?? null,
+              odometer:    loc.odometer    ?? null,
+              engineHours: loc.engineHours ?? null,
+              driveStatus: loc.driveStatus ?? null,
+              fuelPercent: loc.fuelPercent ?? null,
+              timestamp:   loc.timestamp,
+              receivedAt:  loc.receivedAt,
+            },
+          })
           if (loc.odometer) await syncOdometerToVehicle(deviceId, loc.odometer)
           return NextResponse.json(loc)
         }
       }
-    } catch { /* fall through to cache */ }
+    } catch { /* fall through to DB cache */ }
   }
 
-  try {
-    const cache = await readCache()
-    const loc = cache[deviceId]
-    if (loc) return NextResponse.json(loc)
-  } catch { /* ignore */ }
+  const [cached] = await db.select().from(gpsLocations).where(eq(gpsLocations.deviceId, deviceId)).limit(1)
+  if (cached) return NextResponse.json(cached)
 
   return NextResponse.json({ error: 'No location data available' }, { status: 404 })
 }

@@ -1,51 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
-import fs from 'fs/promises'
-import path from 'path'
+import { eq, inArray, desc } from 'drizzle-orm'
+import { getDb } from '@/lib/db'
+import { assets, gpsLocations, driveStops } from '@/lib/db/schema'
 import type { DriveStop, GpsLocation } from '@/lib/types'
 
-const GPS_FILE     = path.join(process.cwd(), 'data', 'gps-locations.json')
-const TRIPS_FILE   = path.join(process.cwd(), 'data', 'drive-stops.json')
-const BC_FILE      = path.join(process.cwd(), 'data', 'balanced-comfort.json')
-const SAILORS_FILE = path.join(process.cwd(), 'data', 'sailors-air.json')
-
-async function readLocations(): Promise<Record<string, GpsLocation>> {
-  try { return JSON.parse(await fs.readFile(GPS_FILE, 'utf-8')) } catch { return {} }
-}
-async function writeLocations(data: Record<string, GpsLocation>) {
-  await fs.writeFile(GPS_FILE, JSON.stringify(data, null, 2), 'utf-8')
-}
-async function readTrips(): Promise<Record<string, DriveStop[]>> {
-  try { return JSON.parse(await fs.readFile(TRIPS_FILE, 'utf-8')) } catch { return {} }
-}
-async function writeTrips(data: Record<string, DriveStop[]>) {
-  await fs.writeFile(TRIPS_FILE, JSON.stringify(data, null, 2), 'utf-8')
-}
-
-// When a ping includes an odometer reading, update the matched vehicle's
-// mileage field in the company data so it stays current automatically.
 async function syncOdometerToVehicle(deviceId: string, odometer: number) {
-  for (const file of [BC_FILE, SAILORS_FILE]) {
-    try {
-      const data = JSON.parse(await fs.readFile(file, 'utf-8'))
-      const asset = data.assets?.find(
-        (a: { type: string; oneStepDeviceId?: string; mileage?: number }) =>
-          a.type === 'vehicle' && a.oneStepDeviceId === deviceId
-      )
-      if (asset) {
-        // Only update if the new reading is higher (odometers don't go backwards)
-        if (!asset.mileage || odometer > asset.mileage) {
-          asset.mileage = Math.round(odometer)
-          asset.updatedAt = new Date().toISOString()
-          await fs.writeFile(file, JSON.stringify(data, null, 2), 'utf-8')
-        }
-        return
-      }
-    } catch { /* file may not exist */ }
+  const db = getDb()
+  const [asset] = await db.select({ id: assets.id, mileage: assets.mileage })
+    .from(assets).where(eq(assets.oneStepDeviceId, deviceId)).limit(1)
+  if (asset && (!asset.mileage || odometer > asset.mileage)) {
+    await db.update(assets)
+      .set({ mileage: odometer, updatedAt: new Date().toISOString() })
+      .where(eq(assets.id, asset.id))
   }
 }
 
 function parsePayload(body: Record<string, unknown>): GpsLocation | null {
-  // DataQueue envelope: { schema: "device_point", value: {...} }
   const point: Record<string, unknown> =
     body.schema === 'device_point' && body.value
       ? (body.value as Record<string, unknown>)
@@ -71,16 +41,12 @@ function parsePayload(body: Record<string, unknown>): GpsLocation | null {
   const hwOdo  = (state.hardware_odometer ?? {})          as Record<string, unknown>
   const hwUnit = String(hwOdo.unit ?? 'km').toLowerCase()
   const hwVal  = hwOdo.value != null ? Number(hwOdo.value) : undefined
-  // Fall back to device_state.odometer (computed best) when hardware_odometer is absent
   const bestOdo    = (state.odometer ?? state.software_odometer ?? {}) as Record<string, unknown>
   const bestOdoVal = bestOdo.value != null ? Number(bestOdo.value) : undefined
   const odometerMi = hwVal != null
     ? (hwUnit === 'mi' ? Math.round(hwVal) : Math.round(hwVal * 0.621371))
-    : bestOdoVal != null
-      ? Math.round(bestOdoVal * 0.621371)
-      : undefined
+    : bestOdoVal != null ? Math.round(bestOdoVal * 0.621371) : undefined
 
-  // Engine hours from counter_list key "eh"
   const counterList = Array.isArray(state.counter_list)
     ? (state.counter_list as Array<{ key: string; val: number }>)
     : []
@@ -135,24 +101,19 @@ function parseDriveStop(body: Record<string, unknown>): DriveStop | null {
   const llFrom   = (ds.lat_lng_from  ?? {}) as Record<string, unknown>
   const llTo     = (ds.lat_lng_to    ?? {}) as Record<string, unknown>
 
-  const durationSec = durObj.value  != null ? Number(durObj.value)  : 0
-  const distM       = distObj.value != null ? Number(distObj.value) : undefined
-  const distanceMi  = distM != null ? Math.round(distM / 1609.344 * 100) / 100 : undefined
-
+  const durationSec  = durObj.value  != null ? Number(durObj.value)  : 0
+  const distM        = distObj.value != null ? Number(distObj.value) : undefined
+  const distanceMi   = distM != null ? Math.round(distM / 1609.344 * 100) / 100 : undefined
   const odoFrKm      = odoFrObj.value != null ? Number(odoFrObj.value) : undefined
   const odoToKm      = odoToObj.value != null ? Number(odoToObj.value) : undefined
   const odometerFromMi = odoFrKm != null ? Math.round(odoFrKm * 0.621371) : undefined
   const odometerToMi   = odoToKm != null ? Math.round(odoToKm * 0.621371) : undefined
-
-  // average_speed.value is m/s; top_speed.value is km/h
-  const avgSpeedMs  = avgObj.value != null ? Number(avgObj.value) : undefined
-  const topSpeedKmh = topObj.value != null ? Number(topObj.value) : undefined
-  const avgSpeedMph = avgSpeedMs  != null ? Math.round(avgSpeedMs  * 2.237 * 10) / 10 : undefined
-  const topSpeedMph = topSpeedKmh != null ? Math.round(topSpeedKmh * 0.621371 * 10) / 10 : undefined
-
+  const avgSpeedMs   = avgObj.value != null ? Number(avgObj.value) : undefined
+  const topSpeedKmh  = topObj.value != null ? Number(topObj.value) : undefined
+  const avgSpeedMph  = avgSpeedMs  != null ? Math.round(avgSpeedMs  * 2.237 * 10) / 10 : undefined
+  const topSpeedMph  = topSpeedKmh != null ? Math.round(topSpeedKmh * 0.621371 * 10) / 10 : undefined
   const idleDurationSec = idleObj.value != null ? Number(idleObj.value) : undefined
 
-  // Zones: prefer from drive_stop object, fall back to top-level value
   const zfList = Array.isArray(ds.zone_from_list)    ? ds.zone_from_list as Array<{name:string}>
     : Array.isArray(value.zone_from_list) ? value.zone_from_list as Array<{name:string}> : []
   const ztList = Array.isArray(ds.zone_to_list)      ? ds.zone_to_list   as Array<{name:string}>
@@ -191,41 +152,54 @@ export async function POST(req: NextRequest) {
     if (provided !== secret) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  let body: Record<string, unknown>
-  try {
-    body = await req.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
-  }
+  let body: unknown
+  try { body = await req.json() }
+  catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }) }
 
-  const events = Array.isArray(body) ? body as Record<string, unknown>[] : [body]
-  const locations = await readLocations()
-  const trips     = await readTrips()
-  let locUpdated   = 0
-  let tripsUpdated = 0
+  const events = Array.isArray(body) ? body as Record<string, unknown>[] : [body as Record<string, unknown>]
+  const db = getDb()
+  let locUpdated = 0, tripsUpdated = 0
 
   for (const event of events) {
     if (event.schema === 'drive_stop') {
       const trip = parseDriveStop(event)
       if (!trip) continue
-      const bucket = trips[trip.deviceId] ?? []
-      if (!bucket.some(t => t.id === trip.id)) {
-        trips[trip.deviceId] = [trip, ...bucket].slice(0, 50)
-        tripsUpdated++
+      await db.insert(driveStops).values({
+        ...trip,
+        isIncomplete: trip.isIncomplete ? 'true' : null,
+        events: trip.events ?? null,
+      }).onConflictDoNothing()
+      tripsUpdated++
+      // Keep only 50 most recent per device
+      const all = await db.select({ id: driveStops.id })
+        .from(driveStops).where(eq(driveStops.deviceId, trip.deviceId))
+        .orderBy(desc(driveStops.timeFrom))
+      if (all.length > 50) {
+        await db.delete(driveStops)
+          .where(inArray(driveStops.id, all.slice(50).map(r => r.id)))
       }
     } else {
       const loc = parsePayload(event)
       if (!loc) continue
-      const existing = locations[loc.deviceId]
-      if (!existing || loc.timestamp >= existing.timestamp) {
-        locations[loc.deviceId] = loc
-        locUpdated++
-        if (loc.odometer) await syncOdometerToVehicle(loc.deviceId, loc.odometer)
-      }
+      await db.insert(gpsLocations).values(loc).onConflictDoUpdate({
+        target: gpsLocations.deviceId,
+        set: {
+          lat: loc.lat, lng: loc.lng,
+          speed:       loc.speed       ?? null,
+          heading:     loc.heading     ?? null,
+          address:     loc.address     ?? null,
+          odometer:    loc.odometer    ?? null,
+          engineHours: loc.engineHours ?? null,
+          driveStatus: loc.driveStatus ?? null,
+          fuelPercent: loc.fuelPercent ?? null,
+          timestamp:   loc.timestamp,
+          receivedAt:  loc.receivedAt,
+        },
+      })
+      locUpdated++
+      if (loc.odometer) await syncOdometerToVehicle(loc.deviceId, loc.odometer)
     }
   }
 
-  if (locUpdated   > 0) await writeLocations(locations)
-  if (tripsUpdated > 0) await writeTrips(trips)
   return NextResponse.json({ received: events.length, locUpdated, tripsUpdated })
 }

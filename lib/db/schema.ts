@@ -1,4 +1,4 @@
-import { pgTable, text, integer, doublePrecision, timestamp, jsonb } from 'drizzle-orm/pg-core'
+import { index, pgTable, text, integer, doublePrecision, jsonb } from 'drizzle-orm/pg-core'
 
 export const assets = pgTable('assets', {
   id: text('id').primaryKey(),
@@ -64,3 +64,57 @@ export const drivers = pgTable('drivers', {
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
 })
+
+export const gpsLocations = pgTable('gps_locations', {
+  deviceId:    text('device_id').primaryKey(),
+  lat:         doublePrecision('lat').notNull(),
+  lng:         doublePrecision('lng').notNull(),
+  speed:       doublePrecision('speed'),
+  heading:     doublePrecision('heading'),
+  address:     text('address'),
+  odometer:    doublePrecision('odometer'),
+  engineHours: doublePrecision('engine_hours'),
+  driveStatus: text('drive_status'),
+  fuelPercent: doublePrecision('fuel_percent'),
+  timestamp:   text('timestamp').notNull(),
+  receivedAt:  text('received_at').notNull(),
+})
+
+export const driveStops = pgTable('drive_stops', {
+  id:              text('id').primaryKey(),
+  deviceId:        text('device_id').notNull(),
+  type:            text('type').notNull(),
+  timeFrom:        text('time_from').notNull(),
+  timeTo:          text('time_to').notNull(),
+  durationSec:     doublePrecision('duration_sec').notNull().default(0),
+  distanceMi:      doublePrecision('distance_mi'),
+  odometerFromMi:  doublePrecision('odometer_from_mi'),
+  odometerToMi:    doublePrecision('odometer_to_mi'),
+  avgSpeedMph:     doublePrecision('avg_speed_mph'),
+  topSpeedMph:     doublePrecision('top_speed_mph'),
+  idleDurationSec: doublePrecision('idle_duration_sec'),
+  latFrom:         doublePrecision('lat_from'),
+  lngFrom:         doublePrecision('lng_from'),
+  latTo:           doublePrecision('lat_to'),
+  lngTo:           doublePrecision('lng_to'),
+  zoneFrom:        text('zone_from'),
+  zoneTo:          text('zone_to'),
+  events:          jsonb('events').$type<Record<string, number>>(),
+  isIncomplete:    text('is_incomplete'),
+  receivedAt:      text('received_at').notNull(),
+}, t => [index('drive_stops_device_id_idx').on(t.deviceId)])
+
+export const wexTransactions = pgTable('wex_transactions', {
+  id:             text('id').primaryKey(),
+  cardNumber:     text('card_number').notNull(),
+  date:           text('date').notNull(),
+  merchantName:   text('merchant_name'),
+  merchantCity:   text('merchant_city'),
+  merchantState:  text('merchant_state'),
+  productType:    text('product_type'),
+  gallons:        doublePrecision('gallons'),
+  pricePerGallon: doublePrecision('price_per_gallon'),
+  totalAmount:    doublePrecision('total_amount').notNull(),
+  odometer:       doublePrecision('odometer'),
+  receivedAt:     text('received_at').notNull(),
+}, t => [index('wex_transactions_card_number_idx').on(t.cardNumber)])

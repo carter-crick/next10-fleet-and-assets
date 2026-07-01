@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import fs from 'fs/promises'
-import path from 'path'
+import { inArray } from 'drizzle-orm'
+import { getDb } from '@/lib/db'
+import { gpsLocations } from '@/lib/db/schema'
 import type { Asset, Company, GpsLocation } from '@/lib/types'
-
-const GPS_FILE = path.join(process.cwd(), 'data', 'gps-locations.json')
 
 export interface FleetVehicle {
   id: string
@@ -21,10 +20,6 @@ export interface FleetVehicle {
   fuelPercent?: number
   timestamp: string
   receivedAt: string
-}
-
-async function readCache(): Promise<Record<string, GpsLocation>> {
-  try { return JSON.parse(await fs.readFile(GPS_FILE, 'utf-8')) } catch { return {} }
 }
 
 // OneStep /device-point response uses different field names than /device
@@ -108,6 +103,8 @@ export async function GET(req: NextRequest) {
 
   const livePoints = new Map<string, GpsLocation>()
 
+  const db = getDb()
+
   if (apiKey) {
     // Fire all device-point requests in parallel — one call per tracked vehicle
     const settled = await Promise.allSettled(
@@ -119,18 +116,35 @@ export async function GET(req: NextRequest) {
         if (!res.ok) return
         const points: Record<string, unknown>[] = await res.json()
         const loc = parseDevicePoint(Array.isArray(points) ? points : [points], asset.oneStepDeviceId!)
-        if (loc) livePoints.set(asset.oneStepDeviceId!, loc)
+        if (loc) {
+          livePoints.set(asset.oneStepDeviceId!, loc)
+          await db.insert(gpsLocations).values(loc).onConflictDoUpdate({
+            target: gpsLocations.deviceId,
+            set: {
+              lat: loc.lat, lng: loc.lng,
+              speed:       loc.speed       ?? null,
+              heading:     loc.heading     ?? null,
+              address:     loc.address     ?? null,
+              odometer:    loc.odometer    ?? null,
+              engineHours: loc.engineHours ?? null,
+              driveStatus: loc.driveStatus ?? null,
+              fuelPercent: loc.fuelPercent ?? null,
+              timestamp:   loc.timestamp,
+              receivedAt:  loc.receivedAt,
+            },
+          }).catch(() => {})
+        }
       })
     )
-    void settled // all errors are swallowed — we fall through to cache below
+    void settled
   }
 
-  // Fill any gaps from webhook cache
-  const cache = await readCache()
-  for (const asset of assets) {
-    const did = asset.oneStepDeviceId!
-    if (!livePoints.has(did) && cache[did]) {
-      livePoints.set(did, cache[did])
+  // Fill any gaps from DB cache
+  const deviceIds = assets.map(a => a.oneStepDeviceId!)
+  if (deviceIds.length > 0) {
+    const cached = await db.select().from(gpsLocations).where(inArray(gpsLocations.deviceId, deviceIds))
+    for (const row of cached) {
+      if (!livePoints.has(row.deviceId)) livePoints.set(row.deviceId, row as GpsLocation)
     }
   }
 
