@@ -37,6 +37,7 @@ export const maintenanceRecords = pgTable('maintenance_records', {
   assetId: text('asset_id').notNull().references(() => assets.id, { onDelete: 'cascade' }),
   date: text('date').notNull(),
   type: text('type').notNull(),
+  services: jsonb('services').$type<string[]>(),
   description: text('description').notNull(),
   cost: doublePrecision('cost'),
   mileage: doublePrecision('mileage'),

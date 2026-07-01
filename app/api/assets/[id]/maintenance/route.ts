@@ -44,6 +44,27 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   return NextResponse.json(record, { status: 201 })
 }
 
+export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  if (process.env.SKIP_AUTH !== 'true') {
+    const session = await auth()
+    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const { id } = await params
+  const body = await req.json()
+  const { company, recordId, ...fields } = body as { company: Company; recordId: string; [k: string]: unknown }
+  if (!company || !recordId) return NextResponse.json({ error: 'company and recordId required' }, { status: 400 })
+
+  const data = await readCompanyData(company)
+  const idx = data.maintenance.findIndex(m => m.assetId === id && m.id === recordId)
+  if (idx === -1) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
+  data.maintenance[idx] = { ...data.maintenance[idx], ...fields }
+  await writeCompanyData(company, data)
+
+  return NextResponse.json(data.maintenance[idx])
+}
+
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   if (process.env.SKIP_AUTH !== 'true') {
     const session = await auth()

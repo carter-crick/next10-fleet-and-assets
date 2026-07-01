@@ -39,6 +39,7 @@ export interface MaintenanceRecord {
   assetId: string
   date: string
   type: string
+  services?: string[]
   description: string
   cost?: number
   mileage?: number

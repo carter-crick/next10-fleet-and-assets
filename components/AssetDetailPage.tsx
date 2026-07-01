@@ -14,10 +14,6 @@ const STATUS_OPTIONS: { value: AssetStatus; label: string }[] = [
   { value: 'retired',        label: 'Retired'         },
 ]
 
-const MAINTENANCE_TYPES = [
-  'Oil Change', 'Tire Rotation', 'Tire Replacement', 'Inspection',
-  'Registration', 'Insurance', 'Repair', 'Cleaning', 'Other',
-]
 
 function formatDate(dateStr?: string) {
   if (!dateStr) return '—'
@@ -48,6 +44,77 @@ function InfoRow({ label, value }: { label: string; value?: string | number | nu
   )
 }
 
+const MAINTENANCE_TYPES_LIST = [
+  'Oil Change', 'Tire Rotation', 'Tire Replacement', 'Inspection',
+  'Registration', 'Insurance', 'Repair', 'Cleaning', 'Other',
+]
+
+type MaintFormState = { date: string; services: string[]; description: string; mileage: string; cost: string; vendor: string; notes: string }
+
+function MaintFormFields({ form, onChange, isVehicle, companyColor }: {
+  form: MaintFormState
+  onChange: (patch: Partial<MaintFormState>) => void
+  isVehicle: boolean
+  companyColor: string
+}) {
+  const inputCls = 'block w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#002D5B]'
+  function toggleService(s: string) {
+    onChange({ services: form.services.includes(s) ? form.services.filter(x => x !== s) : [...form.services, s] })
+  }
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Date <span className="text-red-500">*</span></label>
+          <input type="date" required value={form.date} onChange={e => onChange({ date: e.target.value })} className={inputCls} />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Vendor</label>
+          <input type="text" value={form.vendor} onChange={e => onChange({ vendor: e.target.value })} placeholder="Shop name" className={inputCls} />
+        </div>
+      </div>
+      <div>
+        <label className="block text-xs font-medium text-gray-600 mb-1.5">Services Performed</label>
+        <div className="flex flex-wrap gap-2">
+          {MAINTENANCE_TYPES_LIST.map(s => {
+            const checked = form.services.includes(s)
+            return (
+              <button
+                key={s}
+                type="button"
+                onClick={() => toggleService(s)}
+                className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${checked ? 'text-white border-transparent' : 'bg-white border-gray-300 text-gray-600 hover:border-gray-400'}`}
+                style={checked ? { backgroundColor: companyColor, borderColor: companyColor } : undefined}
+              >
+                {s}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="sm:col-span-2">
+          <label className="block text-xs font-medium text-gray-600 mb-1">Description <span className="text-red-500">*</span></label>
+          <input type="text" required value={form.description} onChange={e => onChange({ description: e.target.value })} placeholder="What was done?" className={inputCls} />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Cost</label>
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">$</span>
+            <input type="number" value={form.cost} onChange={e => onChange({ cost: e.target.value })} placeholder="0.00" min="0" step="0.01" className="block w-full border border-gray-300 rounded-lg pl-6 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#002D5B]" />
+          </div>
+        </div>
+        {isVehicle && (
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Mileage</label>
+            <input type="number" value={form.mileage} onChange={e => onChange({ mileage: e.target.value })} placeholder="Current miles" min="0" className={inputCls} />
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 const inputCls = 'block w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#002D5B]'
 
 export default function AssetDetailPage({ company, id }: { company: Company; id: string }) {
@@ -67,9 +134,16 @@ export default function AssetDetailPage({ company, id }: { company: Company; id:
   // Maintenance form
   const [showMaintForm, setShowMaintForm] = useState(false)
   const [maintForm, setMaintForm] = useState({
-    date: '', type: 'Oil Change', description: '', mileage: '', cost: '', vendor: '', notes: '',
+    date: '', services: ['Oil Change'] as string[], description: '', mileage: '', cost: '', vendor: '', notes: '',
   })
   const [savingMaint, setSavingMaint] = useState(false)
+
+  // Maintenance edit
+  const [editingMaintId, setEditingMaintId] = useState<string | null>(null)
+  const [editMaintForm, setEditMaintForm] = useState({
+    date: '', services: [] as string[], description: '', mileage: '', cost: '', vendor: '', notes: '',
+  })
+  const [savingEditMaint, setSavingEditMaint] = useState(false)
 
   // Inspection form
   const [showInspForm, setShowInspForm] = useState(false)
@@ -164,8 +238,9 @@ export default function AssetDetailPage({ company, id }: { company: Company; id:
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           company,
-          date: maintForm.date,
-          type: maintForm.type,
+          date:        maintForm.date,
+          services:    maintForm.services,
+          type:        maintForm.services[0] ?? 'Other',
           description: maintForm.description.trim(),
           ...(maintForm.mileage && { mileage: parseInt(maintForm.mileage) }),
           ...(maintForm.cost    && { cost: parseFloat(maintForm.cost) }),
@@ -176,7 +251,7 @@ export default function AssetDetailPage({ company, id }: { company: Company; id:
       if (!res.ok) throw new Error('Failed')
       const record = await res.json()
       setMaintenance(m => [record, ...m])
-      setMaintForm({ date: '', type: 'Oil Change', description: '', mileage: '', cost: '', vendor: '', notes: '' })
+      setMaintForm({ date: '', services: ['Oil Change'], description: '', mileage: '', cost: '', vendor: '', notes: '' })
       setShowMaintForm(false)
     } catch {
       alert('Failed to save record. Please try again.')
@@ -189,6 +264,52 @@ export default function AssetDetailPage({ company, id }: { company: Company; id:
     if (!confirm('Delete this maintenance record?')) return
     await fetch(`/api/assets/${id}/maintenance?company=${company}&recordId=${recordId}`, { method: 'DELETE' })
     setMaintenance(m => m.filter(r => r.id !== recordId))
+  }
+
+  function startEditMaint(rec: MaintenanceRecord) {
+    setEditingMaintId(rec.id)
+    setShowMaintForm(false)
+    setEditMaintForm({
+      date:        rec.date,
+      services:    rec.services?.length ? rec.services : [rec.type],
+      description: rec.description,
+      mileage:     rec.mileage?.toString() ?? '',
+      cost:        rec.cost?.toString() ?? '',
+      vendor:      rec.vendor ?? '',
+      notes:       rec.notes ?? '',
+    })
+  }
+
+  async function handleSaveEditMaint(e: React.FormEvent) {
+    e.preventDefault()
+    if (!editingMaintId || !editMaintForm.date || !editMaintForm.description.trim()) return
+    setSavingEditMaint(true)
+    try {
+      const res = await fetch(`/api/assets/${id}/maintenance`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          company,
+          recordId: editingMaintId,
+          date:        editMaintForm.date,
+          services:    editMaintForm.services,
+          type:        editMaintForm.services[0] ?? 'Other',
+          description: editMaintForm.description.trim(),
+          ...(editMaintForm.mileage && { mileage: parseInt(editMaintForm.mileage) }),
+          ...(editMaintForm.cost    && { cost: parseFloat(editMaintForm.cost) }),
+          vendor: editMaintForm.vendor || null,
+          notes:  editMaintForm.notes  || null,
+        }),
+      })
+      if (!res.ok) throw new Error('Failed')
+      const updated = await res.json()
+      setMaintenance(m => m.map(r => r.id === editingMaintId ? updated : r))
+      setEditingMaintId(null)
+    } catch {
+      alert('Failed to save. Please try again.')
+    } finally {
+      setSavingEditMaint(false)
+    }
   }
 
   async function handleAddInspection(e: React.FormEvent) {
@@ -730,45 +851,34 @@ export default function AssetDetailPage({ company, id }: { company: Company; id:
           {showMaintForm && (
             <form onSubmit={handleAddMaintenance} className="px-5 py-4 border-b border-gray-100 bg-gray-50 space-y-3">
               <p className="text-xs font-semibold text-gray-600">New Maintenance Record</p>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Date <span className="text-red-500">*</span></label>
-                  <input type="date" required value={maintForm.date} onChange={e => setMaintForm(f => ({ ...f, date: e.target.value }))} className={inputCls} />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Type</label>
-                  <select value={maintForm.type} onChange={e => setMaintForm(f => ({ ...f, type: e.target.value }))} className={inputCls}>
-                    {MAINTENANCE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Vendor</label>
-                  <input type="text" value={maintForm.vendor} onChange={e => setMaintForm(f => ({ ...f, vendor: e.target.value }))} placeholder="Shop name" className={inputCls} />
-                </div>
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Description <span className="text-red-500">*</span></label>
-                  <input type="text" required value={maintForm.description} onChange={e => setMaintForm(f => ({ ...f, description: e.target.value }))} placeholder="What was done?" className={inputCls} />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Cost</label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">$</span>
-                    <input type="number" value={maintForm.cost} onChange={e => setMaintForm(f => ({ ...f, cost: e.target.value }))} placeholder="0.00" min="0" step="0.01" className="block w-full border border-gray-300 rounded-lg pl-6 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#002D5B]" />
-                  </div>
-                </div>
-                {isVehicle && (
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Mileage</label>
-                    <input type="number" value={maintForm.mileage} onChange={e => setMaintForm(f => ({ ...f, mileage: e.target.value }))} placeholder="Current miles" min="0" className={inputCls} />
-                  </div>
-                )}
-              </div>
+              <MaintFormFields
+                form={maintForm}
+                onChange={patch => setMaintForm(f => ({ ...f, ...patch }))}
+                isVehicle={isVehicle}
+                companyColor={companyColor}
+              />
               <div className="flex justify-end gap-2">
-                <button type="button" onClick={() => setShowMaintForm(false)} className="px-4 py-2 border border-gray-300 rounded-lg text-xs font-medium text-gray-600 hover:bg-white transition-colors">
-                  Cancel
-                </button>
+                <button type="button" onClick={() => setShowMaintForm(false)} className="px-4 py-2 border border-gray-300 rounded-lg text-xs font-medium text-gray-600 hover:bg-white transition-colors">Cancel</button>
                 <button type="submit" disabled={savingMaint} className="px-4 py-2 rounded-lg text-white text-xs font-semibold disabled:opacity-40 hover:opacity-90 transition-opacity" style={{ backgroundColor: companyColor }}>
                   {savingMaint ? 'Saving...' : 'Add Record'}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {editingMaintId && (
+            <form onSubmit={handleSaveEditMaint} className="px-5 py-4 border-b border-gray-100 bg-blue-50 space-y-3">
+              <p className="text-xs font-semibold text-blue-700">Edit Maintenance Record</p>
+              <MaintFormFields
+                form={editMaintForm}
+                onChange={patch => setEditMaintForm(f => ({ ...f, ...patch }))}
+                isVehicle={isVehicle}
+                companyColor={companyColor}
+              />
+              <div className="flex justify-end gap-2">
+                <button type="button" onClick={() => setEditingMaintId(null)} className="px-4 py-2 border border-gray-300 rounded-lg text-xs font-medium text-gray-600 hover:bg-white transition-colors">Cancel</button>
+                <button type="submit" disabled={savingEditMaint} className="px-4 py-2 rounded-lg text-white text-xs font-semibold disabled:opacity-40 hover:opacity-90 transition-opacity" style={{ backgroundColor: companyColor }}>
+                  {savingEditMaint ? 'Saving...' : 'Save Changes'}
                 </button>
               </div>
             </form>
@@ -794,15 +904,24 @@ export default function AssetDetailPage({ company, id }: { company: Company; id:
                 </thead>
                 <tbody className="divide-y divide-gray-50">
                   {maintenance.map((rec, i) => (
-                    <tr key={rec.id} className={`text-sm hover:bg-gray-50 transition-colors ${i % 2 === 1 ? 'bg-[#002D5B]/[0.02]' : ''}`}>
+                    <tr key={rec.id} className={`text-sm hover:bg-gray-50 transition-colors ${editingMaintId === rec.id ? 'bg-blue-50/50' : i % 2 === 1 ? 'bg-[#002D5B]/[0.02]' : ''}`}>
                       <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{formatDate(rec.date)}</td>
-                      <td className="px-4 py-3 text-gray-700 font-medium whitespace-nowrap">{rec.type}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex flex-wrap gap-1">
+                          {(rec.services?.length ? rec.services : [rec.type]).map(s => (
+                            <span key={s} className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">{s}</span>
+                          ))}
+                        </div>
+                      </td>
                       <td className="px-4 py-3 text-gray-600">{rec.description}</td>
                       <td className="px-4 py-3 text-gray-500">{rec.vendor || '—'}</td>
                       <td className="px-4 py-3 text-right text-gray-600 tabular-nums">{rec.cost != null ? formatCurrency(rec.cost) : '—'}</td>
                       {isVehicle && <td className="px-4 py-3 text-right text-gray-500 tabular-nums">{rec.mileage?.toLocaleString() || '—'}</td>}
                       <td className="px-4 py-3 text-right">
-                        <button onClick={() => handleDeleteMaintenance(rec.id)} className="text-gray-300 hover:text-red-400 transition-colors text-xs">✕</button>
+                        <div className="flex items-center justify-end gap-2">
+                          <button onClick={() => editingMaintId === rec.id ? setEditingMaintId(null) : startEditMaint(rec)} className="text-gray-300 hover:text-blue-500 transition-colors text-xs" title="Edit">✎</button>
+                          <button onClick={() => handleDeleteMaintenance(rec.id)} className="text-gray-300 hover:text-red-400 transition-colors text-xs" title="Delete">✕</button>
+                        </div>
                       </td>
                     </tr>
                   ))}
