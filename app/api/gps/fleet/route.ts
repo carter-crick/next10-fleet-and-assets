@@ -128,6 +128,13 @@ export async function GET(req: NextRequest) {
               receivedAt:  loc.receivedAt,
             },
           }).catch(() => {})
+          // Sync GPS odometer → assets.mileage so the assignment tile stays current
+          if (loc.odometer) {
+            await db.update(assetsTable)
+              .set({ mileage: loc.odometer })
+              .where(eq(assetsTable.id, asset.id))
+              .catch(() => {})
+          }
         }
       })
     )

@@ -483,7 +483,7 @@ export default function AssetDetailPage({ company, id }: { company: Company; id:
               <div className="grid grid-cols-2 gap-4">
                 <InfoRow label="Assigned To" value={asset.assignedTo} />
                 <InfoRow label="Location"    value={asset.location} />
-                {isVehicle && <InfoRow label="Mileage" value={asset.mileage?.toLocaleString()} />}
+                {isVehicle && <InfoRow label="Mileage" value={(gpsLocation?.odometer ?? asset.mileage)?.toLocaleString()} />}
               </div>
             </div>
 
