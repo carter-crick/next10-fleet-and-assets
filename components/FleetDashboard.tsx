@@ -103,12 +103,88 @@ export default function FleetDashboard({ company }: { company: Company }) {
     .filter(r => r.daysUntilDue <= 30)
     .sort((a, b) => a.daysUntilDue - b.daysUntilDue)
 
+  // Overdue service — date-based (any asset type)
+  const overdueService = assets.filter(a =>
+    a.nextServiceDue && new Date(a.nextServiceDue + 'T00:00:00') < today
+  )
+
+  // Overdue service — mileage-based (vehicles with GPS/manual mileage)
+  const overdueServiceMileage = assets.filter(a =>
+    a.type === 'vehicle' &&
+    a.lastServiceMileage != null &&
+    a.mileage != null &&
+    a.mileage >= a.lastServiceMileage + 6000 &&
+    !overdueService.find(o => o.id === a.id) // avoid dupes
+  )
+
+  // Overdue inspections (never inspected or > 90 days since last)
+  const overdueInspections = vehicles.filter(v => {
+    const lastDate = lastInspByAsset.get(v.id)
+    if (!lastDate) return true
+    const next = new Date(lastDate + 'T00:00:00')
+    next.setDate(next.getDate() + 90)
+    return next < today
+  })
+
   const types: AssetType[] = ['vehicle', 'equipment', 'trailer']
 
   return (
     <div className="min-h-screen bg-gray-50">
       <CompanyNav company={company} />
       <main className="max-w-6xl mx-auto px-6 py-8 space-y-6">
+
+        {/* Overdue alert banner */}
+        {(overdueService.length > 0 || overdueServiceMileage.length > 0 || overdueInspections.length > 0) && (
+          <div className="rounded-xl border border-red-200 bg-red-50 overflow-hidden">
+            <div className="px-5 py-3 border-b border-red-100 flex items-center gap-2">
+              <span className="text-sm font-semibold text-red-700">Action Required</span>
+              <span className="text-xs font-bold bg-red-600 text-white px-2 py-0.5 rounded-full">
+                {overdueService.length + overdueServiceMileage.length + overdueInspections.length}
+              </span>
+            </div>
+            <div className="px-5 py-3 flex flex-col sm:flex-row gap-5">
+              {(overdueService.length > 0 || overdueServiceMileage.length > 0) && (
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-red-600 uppercase tracking-wide mb-1.5">
+                    Service overdue ({overdueService.length + overdueServiceMileage.length})
+                  </p>
+                  <div className="space-y-1">
+                    {overdueService.map(a => (
+                      <Link key={a.id} href={`/${company}/${a.id}`} className="flex items-center justify-between py-1 px-2 -mx-2 rounded hover:bg-red-100 transition-colors">
+                        <span className="text-sm font-medium text-gray-900 truncate">{a.name}</span>
+                        <span className="text-xs text-red-600 shrink-0 ml-3">{formatDate(a.nextServiceDue!)} past due</span>
+                      </Link>
+                    ))}
+                    {overdueServiceMileage.map(a => (
+                      <Link key={a.id} href={`/${company}/${a.id}`} className="flex items-center justify-between py-1 px-2 -mx-2 rounded hover:bg-red-100 transition-colors">
+                        <span className="text-sm font-medium text-gray-900 truncate">{a.name}</span>
+                        <span className="text-xs text-red-600 shrink-0 ml-3">{Math.round(a.mileage! - a.lastServiceMileage! - 6000).toLocaleString()} mi overdue</span>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {overdueInspections.length > 0 && (
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-red-600 uppercase tracking-wide mb-1.5">
+                    Inspection overdue ({overdueInspections.length})
+                  </p>
+                  <div className="space-y-1">
+                    {overdueInspections.map(v => {
+                      const lastDate = lastInspByAsset.get(v.id)
+                      return (
+                        <Link key={v.id} href={`/${company}/${v.id}`} className="flex items-center justify-between py-1 px-2 -mx-2 rounded hover:bg-red-100 transition-colors">
+                          <span className="text-sm font-medium text-gray-900 truncate">{v.name}</span>
+                          <span className="text-xs text-red-600 shrink-0 ml-3">{lastDate ? 'Over 90 days' : 'Never inspected'}</span>
+                        </Link>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Type stats + Fleet Status — single row */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
