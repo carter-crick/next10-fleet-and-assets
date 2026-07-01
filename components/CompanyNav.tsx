@@ -22,6 +22,7 @@ export default function CompanyNav({ company }: { company: Company }) {
     { label: 'Trailers', href: `${base}/trailers` },
     { label: 'Drivers', href: `${base}/drivers` },
     { label: 'Map',     href: `${base}/map`     },
+    { label: 'Fuel',    href: `${base}/fuel`    },
   ]
 
   function isActive(href: string) {

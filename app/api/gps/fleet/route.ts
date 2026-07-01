@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { inArray } from 'drizzle-orm'
+import { eq, isNotNull, inArray } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
-import { gpsLocations } from '@/lib/db/schema'
+import { assets as assetsTable, gpsLocations } from '@/lib/db/schema'
 import type { Asset, Company, GpsLocation } from '@/lib/types'
 
 export interface FleetVehicle {
@@ -89,21 +89,13 @@ export async function GET(req: NextRequest) {
   if (!company) return NextResponse.json({ error: 'company required' }, { status: 400 })
 
   const apiKey = process.env.ONESTEP_API_KEY
+  const db = getDb()
 
-  const dataFile = path.join(process.cwd(), 'data', `${company}.json`)
-  let assets: Asset[] = []
-  try {
-    const raw = JSON.parse(await fs.readFile(dataFile, 'utf-8'))
-    assets = (raw.assets ?? []).filter(
-      (a: Asset) => a.type === 'vehicle' && a.oneStepDeviceId
-    )
-  } catch {
-    return NextResponse.json([])
-  }
+  const rows = await db.select().from(assetsTable)
+    .where(eq(assetsTable.company, company))
+  const assets = (rows as Asset[]).filter(a => a.type === 'vehicle' && a.oneStepDeviceId)
 
   const livePoints = new Map<string, GpsLocation>()
-
-  const db = getDb()
 
   if (apiKey) {
     // Fire all device-point requests in parallel — one call per tracked vehicle

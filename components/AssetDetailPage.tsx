@@ -927,7 +927,7 @@ export default function AssetDetailPage({ company, id }: { company: Company; id:
               {wexTransactions.length === 0 ? (
                 <div className="px-5 py-8 text-center">
                   <p className="text-sm text-gray-400">No fuel transactions yet.</p>
-                  <p className="text-xs text-gray-300 mt-1">Transactions will appear here once the WEX webhook is active.</p>
+                  <p className="text-xs text-gray-300 mt-1">Import a WEX CSV from the Fuel tab, or transactions will appear automatically once the WEX API is connected.</p>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
