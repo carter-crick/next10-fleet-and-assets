@@ -86,6 +86,7 @@ export default function AssetDetailPage({ company, id }: { company: Company; id:
 
   // Drive/stop history
   const [driveStops, setDriveStops] = useState<DriveStop[]>([])
+  const [showAllFuel, setShowAllFuel] = useState(false)
 
   useEffect(() => {
     Promise.all([
@@ -929,41 +930,55 @@ export default function AssetDetailPage({ company, id }: { company: Company; id:
                   <p className="text-sm text-gray-400">No fuel transactions yet.</p>
                   <p className="text-xs text-gray-300 mt-1">Import a WEX CSV from the Fuel tab, or transactions will appear automatically once the WEX API is connected.</p>
                 </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[560px]">
-                    <thead>
-                      <tr className="text-left text-xs font-semibold text-gray-500 border-b border-gray-100">
-                        <th className="px-4 py-2.5">Date</th>
-                        <th className="px-4 py-2.5">Station</th>
-                        <th className="px-4 py-2.5">Product</th>
-                        <th className="px-4 py-2.5 text-right">Gallons</th>
-                        <th className="px-4 py-2.5 text-right">$/Gal</th>
-                        <th className="px-4 py-2.5 text-right">Total</th>
-                        <th className="px-4 py-2.5 text-right">Odometer</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-50">
-                      {wexTransactions.map((txn, i) => (
-                        <tr key={txn.id} className={`text-sm hover:bg-gray-50 transition-colors ${i % 2 === 1 ? 'bg-[#002D5B]/[0.02]' : ''}`}>
-                          <td className="px-4 py-3 text-gray-600 whitespace-nowrap">
-                            {new Date(txn.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                          </td>
-                          <td className="px-4 py-3 text-gray-700">
-                            {txn.merchantName || '—'}
-                            {txn.merchantCity && <span className="text-gray-400 ml-1 text-xs">{txn.merchantCity}{txn.merchantState ? `, ${txn.merchantState}` : ''}</span>}
-                          </td>
-                          <td className="px-4 py-3 text-gray-500">{txn.productType || '—'}</td>
-                          <td className="px-4 py-3 text-right text-gray-600 tabular-nums">{txn.gallons != null ? txn.gallons.toFixed(3) : '—'}</td>
-                          <td className="px-4 py-3 text-right text-gray-500 tabular-nums">{txn.pricePerGallon != null ? `$${txn.pricePerGallon.toFixed(3)}` : '—'}</td>
-                          <td className="px-4 py-3 text-right font-medium text-gray-700 tabular-nums">${txn.totalAmount.toFixed(2)}</td>
-                          <td className="px-4 py-3 text-right text-gray-400 tabular-nums">{txn.odometer?.toLocaleString() || '—'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+              ) : (() => {
+                const visible = showAllFuel ? wexTransactions : wexTransactions.slice(0, 5)
+                const hidden  = wexTransactions.length - 5
+                return (
+                  <>
+                    <div className="overflow-x-auto">
+                      <table className="w-full min-w-[560px]">
+                        <thead>
+                          <tr className="text-left text-xs font-semibold text-gray-500 border-b border-gray-100">
+                            <th className="px-4 py-2.5">Date</th>
+                            <th className="px-4 py-2.5">Station</th>
+                            <th className="px-4 py-2.5">Product</th>
+                            <th className="px-4 py-2.5 text-right">Gallons</th>
+                            <th className="px-4 py-2.5 text-right">$/Gal</th>
+                            <th className="px-4 py-2.5 text-right">Total</th>
+                            <th className="px-4 py-2.5 text-right">Odometer</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-50">
+                          {visible.map((txn, i) => (
+                            <tr key={txn.id} className={`text-sm hover:bg-gray-50 transition-colors ${i % 2 === 1 ? 'bg-[#002D5B]/[0.02]' : ''}`}>
+                              <td className="px-4 py-3 text-gray-600 whitespace-nowrap">
+                                {new Date(txn.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                              </td>
+                              <td className="px-4 py-3 text-gray-700">
+                                {txn.merchantName || '—'}
+                                {txn.merchantCity && <span className="text-gray-400 ml-1 text-xs">{txn.merchantCity}{txn.merchantState ? `, ${txn.merchantState}` : ''}</span>}
+                              </td>
+                              <td className="px-4 py-3 text-gray-500">{txn.productType || '—'}</td>
+                              <td className="px-4 py-3 text-right text-gray-600 tabular-nums">{txn.gallons != null ? txn.gallons.toFixed(3) : '—'}</td>
+                              <td className="px-4 py-3 text-right text-gray-500 tabular-nums">{txn.pricePerGallon != null ? `$${txn.pricePerGallon.toFixed(3)}` : '—'}</td>
+                              <td className="px-4 py-3 text-right font-medium text-gray-700 tabular-nums">${txn.totalAmount.toFixed(2)}</td>
+                              <td className="px-4 py-3 text-right text-gray-400 tabular-nums">{txn.odometer?.toLocaleString() || '—'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    {hidden > 0 && (
+                      <button
+                        onClick={() => setShowAllFuel(s => !s)}
+                        className="w-full px-5 py-2.5 text-xs font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-50 border-t border-gray-100 transition-colors text-center"
+                      >
+                        {showAllFuel ? '▲ Show less' : `▼ Show ${hidden} more transaction${hidden !== 1 ? 's' : ''}`}
+                      </button>
+                    )}
+                  </>
+                )
+              })()}
             </div>
           )
         })()}
