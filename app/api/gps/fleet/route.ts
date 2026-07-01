@@ -106,8 +106,11 @@ export async function GET(req: NextRequest) {
           { next: { revalidate: 0 } }
         )
         if (!res.ok) return
-        const points: Record<string, unknown>[] = await res.json()
-        const loc = parseDevicePoint(Array.isArray(points) ? points : [points], asset.oneStepDeviceId!)
+        const raw = await res.json()
+        const points: Record<string, unknown>[] = Array.isArray(raw) ? raw
+          : Array.isArray(raw?.result_list) ? raw.result_list
+          : [raw]
+        const loc = parseDevicePoint(points, asset.oneStepDeviceId!)
         if (loc) {
           livePoints.set(asset.oneStepDeviceId!, loc)
           await db.insert(gpsLocations).values(loc).onConflictDoUpdate({
