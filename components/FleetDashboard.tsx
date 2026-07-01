@@ -6,6 +6,7 @@ import CompanyNav from './CompanyNav'
 import StatusBadge from './StatusBadge'
 import type { Asset, AssetType, Company, InspectionRecord } from '@/lib/types'
 import type { FuelSummary } from '@/app/api/wex/summary/route'
+import type { MaintenanceStats } from '@/app/api/maintenance/stats/route'
 
 const TYPE_CONFIG: Record<AssetType, { label: string; icon: string }> = {
   vehicle:   { label: 'Vehicles',  icon: '🚛' },
@@ -32,6 +33,8 @@ export default function FleetDashboard({ company }: { company: Company }) {
   const [loading, setLoading] = useState(true)
   const [fuel, setFuel] = useState<FuelSummary | null>(null)
   const [fuelExpanded, setFuelExpanded] = useState<'nonUnleaded' | 'mpg' | 'odo' | null>(null)
+  const [maintStats, setMaintStats] = useState<MaintenanceStats | null>(null)
+  const [maintHistoryOpen, setMaintHistoryOpen] = useState(false)
 
   const companyColor = company === 'balanced-comfort' ? '#002D5B' : '#0f766e'
 
@@ -45,6 +48,9 @@ export default function FleetDashboard({ company }: { company: Company }) {
     fetch(`/api/wex/summary?company=${company}&days=30`)
       .then(r => r.ok ? r.json() : null)
       .then(data => data && setFuel(data))
+    fetch(`/api/maintenance/stats?company=${company}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => data && setMaintStats(data))
   }, [company])
 
   if (loading) {
@@ -351,6 +357,102 @@ export default function FleetDashboard({ company }: { company: Company }) {
             )}
           </div>
         </div>
+
+        {/* ── Maintenance Spend Tile ──────────────────────────────────────────── */}
+        {maintStats && (
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-gray-700">Maintenance Spend</h2>
+              {maintStats.months.length > 0 && (
+                <button
+                  onClick={() => setMaintHistoryOpen(o => !o)}
+                  className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  {maintHistoryOpen ? '▲ Hide history' : '▼ Monthly history'}
+                </button>
+              )}
+            </div>
+
+            {/* MTD stats */}
+            <div className="px-5 py-4 grid grid-cols-2 sm:grid-cols-4 gap-6 border-b border-gray-100">
+              <div>
+                <p className="text-xs text-gray-400 mb-0.5">MTD Spend</p>
+                <p className="text-2xl font-bold text-gray-900 tabular-nums">
+                  {maintStats.mtd.spend > 0
+                    ? `$${maintStats.mtd.spend.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                    : '—'}
+                </p>
+                <p className="text-xs text-gray-400 mt-0.5">{maintStats.mtd.label}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-400 mb-0.5">Avg / Vehicle</p>
+                <p className="text-2xl font-bold text-gray-900 tabular-nums">
+                  {maintStats.mtd.avgPerVehicle > 0
+                    ? `$${maintStats.mtd.avgPerVehicle.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                    : '—'}
+                </p>
+                <p className="text-xs text-gray-400 mt-0.5">{maintStats.mtd.vehicles} vehicle{maintStats.mtd.vehicles !== 1 ? 's' : ''} serviced</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-400 mb-0.5">Records</p>
+                <p className="text-2xl font-bold text-gray-900 tabular-nums">{maintStats.mtd.records || '—'}</p>
+                <p className="text-xs text-gray-400 mt-0.5">this month</p>
+              </div>
+              {maintStats.months.length > 0 && (() => {
+                const prev = maintStats.months[0]
+                const diff = maintStats.mtd.spend - prev.spend
+                const pct = prev.spend > 0 ? Math.round((diff / prev.spend) * 100) : null
+                return (
+                  <div>
+                    <p className="text-xs text-gray-400 mb-0.5">vs Last Month</p>
+                    <p className={`text-2xl font-bold tabular-nums ${diff > 0 ? 'text-red-500' : diff < 0 ? 'text-green-600' : 'text-gray-900'}`}>
+                      {pct !== null ? `${diff > 0 ? '+' : ''}${pct}%` : '—'}
+                    </p>
+                    <p className="text-xs text-gray-400 mt-0.5">${Math.abs(diff).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} {diff >= 0 ? 'more' : 'less'}</p>
+                  </div>
+                )
+              })()}
+            </div>
+
+            {/* Monthly history */}
+            {maintHistoryOpen && maintStats.months.length > 0 && (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[480px]">
+                  <thead>
+                    <tr className="text-left text-xs font-semibold text-gray-500 border-b border-gray-100">
+                      <th className="px-5 py-2.5">Month</th>
+                      <th className="px-5 py-2.5 text-right">Total Spend</th>
+                      <th className="px-5 py-2.5 text-right">Vehicles</th>
+                      <th className="px-5 py-2.5 text-right">Avg / Vehicle</th>
+                      <th className="px-5 py-2.5 text-right">Records</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {maintStats.months.map((m, i) => (
+                      <tr key={m.month} className={`text-sm hover:bg-gray-50 transition-colors ${i % 2 === 1 ? 'bg-gray-50/50' : ''}`}>
+                        <td className="px-5 py-3 font-medium text-gray-700">{m.label}</td>
+                        <td className="px-5 py-3 text-right tabular-nums text-gray-900">
+                          ${m.spend.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </td>
+                        <td className="px-5 py-3 text-right tabular-nums text-gray-600">{m.vehicles}</td>
+                        <td className="px-5 py-3 text-right tabular-nums text-gray-900">
+                          ${m.avgPerVehicle.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </td>
+                        <td className="px-5 py-3 text-right tabular-nums text-gray-500">{m.records}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {maintStats.mtd.spend === 0 && maintStats.months.length === 0 && (
+              <div className="px-5 py-4">
+                <p className="text-sm text-gray-400">No maintenance costs recorded yet. Add cost to maintenance records to see spend data.</p>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* ── Fuel Summary Tile ───────────────────────────────────────────────── */}
         {fuel && fuel.totals.transactions > 0 && (() => {
