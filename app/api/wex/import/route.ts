@@ -105,27 +105,26 @@ function findAsset(
   byCard: Map<string, AssetRow>,
   allAssets: AssetRow[],
 ): AssetRow | null {
-  // 1. Exact VIN match
-  if (csvVin) {
-    const a = byVin.get(csvVin.toUpperCase())
-    if (a) return a
-  }
-  // 2. Custom Vehicle/Asset ID matches last N chars of any asset's VIN
-  if (customId) {
-    for (const a of allAssets) {
-      if (a.vin && a.vin.toUpperCase().endsWith(customId.toUpperCase())) return a
-    }
-  }
-  // 3. Card number match (cleaned masked card vs fuelCardNumber)
+  // 1. Card number match first — most authoritative; WEX VIN fields can reference the wrong vehicle
   const cleanedCard = rawCard.replace(/\D/g, '')
   if (cleanedCard) {
-    // Direct or partial match
     const direct = byCard.get(cleanedCard)
     if (direct) return direct
     for (const a of allAssets) {
       if (!a.fuelCardNumber) continue
       const c = a.fuelCardNumber.replace(/\D/g, '')
       if (cleanedCard.endsWith(c) || c.endsWith(cleanedCard)) return a
+    }
+  }
+  // 2. Exact VIN match (fallback for vehicles not yet assigned a card)
+  if (csvVin) {
+    const a = byVin.get(csvVin.toUpperCase())
+    if (a) return a
+  }
+  // 3. Custom Vehicle/Asset ID matches last N chars of any asset's VIN
+  if (customId) {
+    for (const a of allAssets) {
+      if (a.vin && a.vin.toUpperCase().endsWith(customId.toUpperCase())) return a
     }
   }
   return null
