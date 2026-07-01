@@ -149,28 +149,35 @@ export async function GET(req: NextRequest) {
       series.push({ date: curr.date, mpg, gallons: curr.gallons, merchantName: curr.merchantName ?? '' })
     }
 
-    // Rolling 5-point window: each fill-up is compared against the median of
-    // the 5 preceding fill-ups so the baseline stays local and recent.
-    const WINDOW = 5
-    for (let i = WINDOW; i < series.length; i++) {
-      if (new Date(series[i].date) < periodStart) continue
-      const window = series.slice(i - WINDOW, i).map(p => p.mpg)
-      const avgMpg = median(window)
-      const pt = series[i]
-      const pct = ((pt.mpg - avgMpg) / avgMpg) * 100
-      if (Math.abs(pct) > 15) {
-        mpgAnomalies.push({
-          vehicleName: v.name,
-          assetId:     v.id,
-          date:        pt.date,
-          actualMpg:   Math.round(pt.mpg * 10) / 10,
-          avgMpg:      Math.round(avgMpg * 10) / 10,
-          pctDiff:     Math.round(pct),
-          gallons:     pt.gallons,
-          merchantName: pt.merchantName,
-          direction:   pct < 0 ? 'low' : 'high',
-        })
-      }
+    // 5-fill-up sample: compare median of last 5 fill-ups against historical
+    // baseline (everything before those 5). One alert per vehicle, no duplicates
+    // from same-day multiple fill-ups.
+    const SAMPLE = 5
+    if (series.length < SAMPLE + 3) continue  // need history beyond the sample
+
+    const historical = series.slice(0, series.length - SAMPLE)
+    const recent     = series.slice(series.length - SAMPLE)
+
+    // Only alert if the sample overlaps the report period
+    const mostRecent = recent[recent.length - 1]
+    if (new Date(mostRecent.date) < periodStart) continue
+
+    const historicalMedian = median(historical.map(p => p.mpg))
+    const recentMedian     = median(recent.map(p => p.mpg))
+    const pct = ((recentMedian - historicalMedian) / historicalMedian) * 100
+
+    if (Math.abs(pct) > 15) {
+      mpgAnomalies.push({
+        vehicleName: v.name,
+        assetId:     v.id,
+        date:        mostRecent.date,
+        actualMpg:   Math.round(recentMedian * 10) / 10,
+        avgMpg:      Math.round(historicalMedian * 10) / 10,
+        pctDiff:     Math.round(pct),
+        gallons:     recent.reduce((s, p) => s + p.gallons, 0),
+        merchantName: mostRecent.merchantName,
+        direction:   pct < 0 ? 'low' : 'high',
+      })
     }
   }
   mpgAnomalies.sort((a, b) => b.date.localeCompare(a.date))
