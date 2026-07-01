@@ -109,6 +109,7 @@ export async function GET(req: NextRequest) {
     .filter(t => {
       if (!t.productType) return false
       const p = t.productType.toLowerCase()
+      if (p.includes('+')) return true                          // any + blend is not permitted
       return !p.includes('unleaded') && !p.startsWith('unl')
     })
     .map(t => ({
