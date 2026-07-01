@@ -704,7 +704,15 @@ export default function AssetDetailPage({ company, id }: { company: Company; id:
                 const isOverdue = nextInspDate < new Date()
                 return (
                   <div className="grid grid-cols-2 gap-4 pt-3 border-t border-gray-100">
-                    <InfoRow label="Last Inspection" value={formatDate(lastInsp.date)} />
+                    <div>
+                      <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-0.5">Last Inspection</p>
+                      <p className="text-sm font-medium text-gray-800 flex items-center gap-1.5">
+                        {formatDate(lastInsp.date)}
+                        {lastInsp.notes?.startsWith('ASSUMED') && (
+                          <span className="text-xs font-semibold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 border border-amber-200">ASSUMED</span>
+                        )}
+                      </p>
+                    </div>
                     <div>
                       <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-0.5">Next Inspection Due</p>
                       <p className={`text-sm font-medium ${isOverdue ? 'text-red-600' : 'text-gray-800'}`}>{nextInspStr}</p>
@@ -1019,10 +1027,14 @@ export default function AssetDetailPage({ company, id }: { company: Company; id:
                       <div className="min-w-0">
                         <div className="flex items-center gap-3 flex-wrap">
                           <span className="text-sm font-medium text-gray-900">{formatDate(rec.date)}</span>
+                          {rec.notes?.startsWith('ASSUMED') && (
+                            <span className="text-xs font-semibold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 border border-amber-200">ASSUMED</span>
+                          )}
                           <span className="text-xs text-gray-500">Driver: <span className="font-medium text-gray-700">{rec.driver}</span></span>
                           {rec.mileage && <span className="text-xs text-gray-400">{rec.mileage.toLocaleString()} mi</span>}
                         </div>
-                        {rec.notes && <p className="text-sm text-gray-600 mt-1">{rec.notes}</p>}
+                        {rec.notes && !rec.notes.startsWith('ASSUMED') && <p className="text-sm text-gray-600 mt-1">{rec.notes}</p>}
+                        {rec.notes?.startsWith('ASSUMED') && <p className="text-xs text-gray-400 mt-0.5 italic">{rec.notes}</p>}
                         {rec.photos.length > 0 && (
                           <div className="flex gap-2 mt-2 flex-wrap">
                             {rec.photos.map((url, pi) => (
