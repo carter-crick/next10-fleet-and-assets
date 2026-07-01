@@ -592,46 +592,6 @@ export default function FleetDashboard({ company }: { company: Company }) {
           </div>
         )}
 
-        {/* Recent assets */}
-        {assets.length > 0 && (
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-            <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-gray-700">Recent Assets</h2>
-              <Link href={`/${company}/add`} className="text-xs font-medium" style={{ color: companyColor }}>
-                + Add asset
-              </Link>
-            </div>
-            <table className="w-full">
-              <thead>
-                <tr className="text-left text-xs font-semibold text-white" style={{ backgroundColor: companyColor }}>
-                  <th className="px-4 py-2.5">Name</th>
-                  <th className="px-4 py-2.5 hidden sm:table-cell">Type</th>
-                  <th className="px-4 py-2.5">Status</th>
-                  <th className="px-4 py-2.5 hidden md:table-cell">Assigned To</th>
-                  <th className="px-4 py-2.5 w-16"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {assets.slice(-10).reverse().map((asset, i) => (
-                  <tr key={asset.id} className={`hover:bg-gray-50 transition-colors ${i % 2 === 1 ? 'bg-[#002D5B]/[0.02]' : ''}`}>
-                    <td className="px-4 py-3">
-                      <Link href={`/${company}/${asset.id}`} className="text-sm font-medium text-gray-900 hover:underline">
-                        {asset.name}
-                      </Link>
-                      {asset.make && <p className="text-xs text-gray-400">{[asset.make, asset.model].filter(Boolean).join(' ')}</p>}
-                    </td>
-                    <td className="px-4 py-3 hidden sm:table-cell text-sm text-gray-500 capitalize">{asset.type}</td>
-                    <td className="px-4 py-3"><StatusBadge status={asset.status} /></td>
-                    <td className="px-4 py-3 hidden md:table-cell text-sm text-gray-500">{asset.assignedTo || '—'}</td>
-                    <td className="px-4 py-3 text-right">
-                      <Link href={`/${company}/${asset.id}`} className="text-xs text-gray-400 hover:text-gray-600">View →</Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
 
       </main>
     </div>
