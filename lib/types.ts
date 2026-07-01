@@ -25,6 +25,7 @@ export interface Asset {
   location?: string
   notes?: string
   lastServiceDate?: string
+  lastServiceMileage?: number
   nextServiceDue?: string
   mileage?: number
   purchaseDate?: string

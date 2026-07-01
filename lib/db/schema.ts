@@ -23,6 +23,7 @@ export const assets = pgTable('assets', {
   location: text('location'),
   notes: text('notes'),
   lastServiceDate: text('last_service_date'),
+  lastServiceMileage: doublePrecision('last_service_mileage'),
   nextServiceDue: text('next_service_due'),
   mileage: doublePrecision('mileage'),
   purchaseDate: text('purchase_date'),

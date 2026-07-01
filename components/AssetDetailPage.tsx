@@ -407,10 +407,15 @@ export default function AssetDetailPage({ company, id }: { company: Company; id:
                 <label className="block text-sm font-medium text-gray-700 mb-1">Last Service Date</label>
                 <input type="date" value={editForm.lastServiceDate || ''} onChange={e => setEdit('lastServiceDate', e.target.value)} className={inputCls} />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Next Service Due</label>
-                <input type="date" value={editForm.nextServiceDue || ''} onChange={e => setEdit('nextServiceDue', e.target.value)} className={inputCls} />
-              </div>
+              {isVehicle && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Mileage at Last Service</label>
+                  <input type="number" value={editForm.lastServiceMileage || ''} onChange={e => setEdit('lastServiceMileage', e.target.value ? parseInt(e.target.value) : undefined)} min="0" placeholder="e.g. 42000" className={inputCls} />
+                  {editForm.lastServiceMileage ? (
+                    <p className="text-xs text-gray-400 mt-1">Next due at {(editForm.lastServiceMileage + 6000).toLocaleString()} mi</p>
+                  ) : null}
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Purchase Date</label>
                 <input type="date" value={editForm.purchaseDate || ''} onChange={e => setEdit('purchaseDate', e.target.value)} className={inputCls} />
@@ -553,7 +558,21 @@ export default function AssetDetailPage({ company, id }: { company: Company; id:
               <h2 className="text-sm font-semibold text-gray-700">Service</h2>
               <div className="grid grid-cols-2 gap-4">
                 <InfoRow label="Last Service" value={formatDate(asset.lastServiceDate)} />
-                <InfoRow label="Next Due"     value={formatDate(asset.nextServiceDue)} />
+                {isVehicle ? (
+                  <>
+                    {asset.lastServiceMileage != null && (
+                      <InfoRow label="At Mileage" value={`${asset.lastServiceMileage.toLocaleString()} mi`} />
+                    )}
+                    <InfoRow
+                      label="Next Due"
+                      value={asset.lastServiceMileage != null
+                        ? `${(asset.lastServiceMileage + 6000).toLocaleString()} mi`
+                        : undefined}
+                    />
+                  </>
+                ) : (
+                  <InfoRow label="Next Due" value={formatDate(asset.nextServiceDue)} />
+                )}
               </div>
             </div>
 
