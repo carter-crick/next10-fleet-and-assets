@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import CompanyNav from './CompanyNav'
 import StatusBadge from './StatusBadge'
-import type { Asset, AssetType, Company } from '@/lib/types'
+import type { Asset, AssetType, Company, InspectionRecord } from '@/lib/types'
 import type { FuelSummary } from '@/app/api/wex/summary/route'
 
 const TYPE_CONFIG: Record<AssetType, { label: string; icon: string }> = {
@@ -28,6 +28,7 @@ function daysUntil(dateStr: string) {
 
 export default function FleetDashboard({ company }: { company: Company }) {
   const [assets, setAssets] = useState<Asset[]>([])
+  const [inspections, setInspections] = useState<InspectionRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [fuel, setFuel] = useState<FuelSummary | null>(null)
   const [fuelExpanded, setFuelExpanded] = useState<'nonUnleaded' | 'mpg' | 'odo' | null>(null)
@@ -38,6 +39,9 @@ export default function FleetDashboard({ company }: { company: Company }) {
     fetch(`/api/assets?company=${company}`)
       .then(r => r.json())
       .then(data => { setAssets(data); setLoading(false) })
+    fetch(`/api/inspections?company=${company}`)
+      .then(r => r.ok ? r.json() : [])
+      .then(data => Array.isArray(data) && setInspections(data))
     fetch(`/api/wex/summary?company=${company}&days=30`)
       .then(r => r.ok ? r.json() : null)
       .then(data => data && setFuel(data))
@@ -80,6 +84,25 @@ export default function FleetDashboard({ company }: { company: Company }) {
     retired:          assets.filter(a => a.status === 'retired').length,
   }
 
+  // Latest inspection per vehicle → next due at +90 days
+  const lastInspByAsset = new Map<string, string>()
+  for (const insp of inspections) {
+    const existing = lastInspByAsset.get(insp.assetId)
+    if (!existing || insp.date > existing) lastInspByAsset.set(insp.assetId, insp.date)
+  }
+  const vehicles = assets.filter(a => a.type === 'vehicle')
+  const upcomingInspections = vehicles
+    .map(v => {
+      const lastDate = lastInspByAsset.get(v.id)
+      if (!lastDate) return { asset: v, nextDue: null as Date | null, daysUntilDue: -Infinity }
+      const next = new Date(lastDate + 'T00:00:00')
+      next.setDate(next.getDate() + 90)
+      const days = Math.ceil((next.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+      return { asset: v, nextDue: next, daysUntilDue: days }
+    })
+    .filter(r => r.daysUntilDue <= 30)
+    .sort((a, b) => a.daysUntilDue - b.daysUntilDue)
+
   const types: AssetType[] = ['vehicle', 'equipment', 'trailer']
 
   return (
@@ -87,8 +110,8 @@ export default function FleetDashboard({ company }: { company: Company }) {
       <CompanyNav company={company} />
       <main className="max-w-6xl mx-auto px-6 py-8 space-y-6">
 
-        {/* Type stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {/* Type stats + Fleet Status — single row */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {types.map(type => {
             const stats = statsForType(type)
             const { label, icon } = TYPE_CONFIG[type]
@@ -125,26 +148,43 @@ export default function FleetDashboard({ company }: { company: Company }) {
               </Link>
             )
           })}
-        </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-
-          {/* Status breakdown */}
+          {/* Fleet Status */}
           <div className="bg-white rounded-xl border border-gray-200 p-5">
-            <h2 className="text-sm font-semibold text-gray-700 mb-4">Fleet Status</h2>
-            <div className="space-y-3">
-              <StatusRow label="Active"         count={statusCounts.active}           total={assets.length} colorClass="bg-green-500" />
-              <StatusRow label="In Maintenance" count={statusCounts.maintenance}       total={assets.length} colorClass="bg-yellow-400" />
-              <StatusRow label="Out of Service" count={statusCounts['out-of-service']} total={assets.length} colorClass="bg-red-400" />
-              <StatusRow label="Retired"        count={statusCounts.retired}           total={assets.length} colorClass="bg-gray-300" />
-            </div>
-            <div className="mt-4 pt-3 border-t border-gray-100">
-              <p className="text-xs text-gray-400">{assets.length} total assets</p>
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Fleet Status</p>
+            <p className="text-3xl font-bold text-gray-900 tabular-nums mb-3">{assets.length}</p>
+            <div className="space-y-1">
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-400">Active</span>
+                <span className="font-semibold text-green-600">{statusCounts.active}</span>
+              </div>
+              {statusCounts.maintenance > 0 && (
+                <div className="flex justify-between text-xs">
+                  <span className="text-gray-400">Maintenance</span>
+                  <span className="font-semibold text-yellow-600">{statusCounts.maintenance}</span>
+                </div>
+              )}
+              {statusCounts['out-of-service'] > 0 && (
+                <div className="flex justify-between text-xs">
+                  <span className="text-gray-400">Out of service</span>
+                  <span className="font-semibold text-red-500">{statusCounts['out-of-service']}</span>
+                </div>
+              )}
+              {statusCounts.retired > 0 && (
+                <div className="flex justify-between text-xs">
+                  <span className="text-gray-400">Retired</span>
+                  <span className="font-semibold text-gray-400">{statusCounts.retired}</span>
+                </div>
+              )}
             </div>
           </div>
+        </div>
+
+        {/* Upcoming Service + Upcoming Inspections */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
 
           {/* Upcoming service */}
-          <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-5">
+          <div className="bg-white rounded-xl border border-gray-200 p-5">
             <div className="flex items-center gap-2 mb-4">
               <h2 className="text-sm font-semibold text-gray-700">Upcoming Service</h2>
               {upcomingService.length > 0 && (
@@ -176,12 +216,57 @@ export default function FleetDashboard({ company }: { company: Company }) {
                       <div className="text-right shrink-0 ml-4">
                         <p className="text-xs text-gray-500">{formatDate(asset.nextServiceDue!)}</p>
                         <p className={`text-xs font-semibold ${isOverdue ? 'text-red-600' : isDueSoon ? 'text-orange-500' : 'text-yellow-600'}`}>
-                          {isOverdue
-                            ? `${Math.abs(days)}d overdue`
-                            : days === 0
-                            ? 'Due today'
-                            : `In ${days}d`}
+                          {isOverdue ? `${Math.abs(days)}d overdue` : days === 0 ? 'Due today' : `In ${days}d`}
                         </p>
+                      </div>
+                    </Link>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Upcoming inspections */}
+          <div className="bg-white rounded-xl border border-gray-200 p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <h2 className="text-sm font-semibold text-gray-700">Upcoming Inspections</h2>
+              {upcomingInspections.length > 0 && (
+                <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full font-medium">
+                  {upcomingInspections.length}
+                </span>
+              )}
+            </div>
+            {upcomingInspections.length === 0 ? (
+              <p className="text-sm text-gray-400">No vehicle inspections due in the next 30 days.</p>
+            ) : (
+              <div className="space-y-1">
+                {upcomingInspections.slice(0, 8).map(({ asset, nextDue, daysUntilDue }) => {
+                  const isOverdue = daysUntilDue < 0
+                  const isDueSoon = daysUntilDue >= 0 && daysUntilDue <= 7
+                  const neverInspected = nextDue === null
+                  return (
+                    <Link
+                      key={asset.id}
+                      href={`/${company}/${asset.id}`}
+                      className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-gray-50 -mx-3 transition-colors"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">{asset.name}</p>
+                        <p className="text-xs text-gray-400">{asset.assignedTo || 'Unassigned'}</p>
+                      </div>
+                      <div className="text-right shrink-0 ml-4">
+                        {neverInspected ? (
+                          <p className="text-xs font-semibold text-red-600">No inspection on file</p>
+                        ) : (
+                          <>
+                            <p className="text-xs text-gray-500">
+                              {nextDue!.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                            </p>
+                            <p className={`text-xs font-semibold ${isOverdue ? 'text-red-600' : isDueSoon ? 'text-orange-500' : 'text-blue-600'}`}>
+                              {isOverdue ? `${Math.abs(daysUntilDue)}d overdue` : daysUntilDue === 0 ? 'Due today' : `In ${daysUntilDue}d`}
+                            </p>
+                          </>
+                        )}
                       </div>
                     </Link>
                   )
