@@ -10,6 +10,7 @@ interface ImportResult {
   imported: number
   skipped: number
   unmatched: number
+  autoUpdated: number
 }
 
 export default function WexImportPage({ company }: { company: Company }) {
@@ -76,12 +77,10 @@ export default function WexImportPage({ company }: { company: Company }) {
             <li>Log in at <span className="font-medium">wexefm.com</span></li>
             <li>Click <span className="font-medium">Transactions</span> in the top navigation</li>
             <li>Set your date range and click <span className="font-medium">Search</span></li>
-            <li>Look for an <span className="font-medium">Export</span> or <span className="font-medium">Download</span> button and select <span className="font-medium">CSV</span></li>
-            <li>Upload that file below</li>
+            <li>Export as <span className="font-medium">CSV</span> — upload the full file, no column changes needed</li>
           </ol>
           <p className="text-xs text-gray-400 mt-1">
-            The importer automatically matches transactions to vehicles by their WEX card number.
-            Vehicles must have a Fuel Card # set in their asset record to match.
+            Vehicles are matched by VIN. If a vehicle doesn&apos;t have a Fuel Card # set yet, it will be filled in automatically on first import.
           </p>
         </div>
 
@@ -143,19 +142,23 @@ export default function WexImportPage({ company }: { company: Company }) {
               />
               <Stat label="Skipped (duplicates)" value={result.skipped} />
             </div>
-            {result.unmatched > 0 && (
-              <div className="px-5 pb-4">
-                <p className="text-xs text-amber-600">
-                  {result.unmatched} row{result.unmatched !== 1 ? 's' : ''} could not be matched to a vehicle.
-                  Make sure the Fuel Card # on each vehicle matches the card numbers in your WEX export.
-                </p>
-              </div>
-            )}
-            {result.imported > 0 && (
-              <div className="px-5 pb-4">
-                <p className="text-xs text-gray-400">
-                  Transactions now appear on each vehicle's detail page under Fuel Transactions.
-                </p>
+            {(result.autoUpdated > 0 || result.unmatched > 0 || result.imported > 0) && (
+              <div className="px-5 pb-4 space-y-1.5">
+                {result.autoUpdated > 0 && (
+                  <p className="text-xs text-green-700">
+                    {result.autoUpdated} vehicle{result.autoUpdated !== 1 ? 's' : ''} had their Fuel Card # automatically set from this import.
+                  </p>
+                )}
+                {result.imported > 0 && (
+                  <p className="text-xs text-gray-400">
+                    Transactions now appear on each vehicle&apos;s detail page under Fuel Transactions.
+                  </p>
+                )}
+                {result.unmatched > 0 && (
+                  <p className="text-xs text-amber-600">
+                    {result.unmatched} row{result.unmatched !== 1 ? 's' : ''} could not be matched — those vehicles may not be in the app yet, or their VIN may not be set.
+                  </p>
+                )}
               </div>
             )}
           </div>
