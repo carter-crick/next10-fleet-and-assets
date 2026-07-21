@@ -34,7 +34,7 @@ export default function AddAssetPage({ company }: { company: Company }) {
   const searchParams = useSearchParams()
   const initialType = (searchParams.get('type') as AssetType) || 'vehicle'
 
-  const companyColor = company === 'balanced-comfort' ? '#002D5B' : '#0f766e'
+  const companyColor = company === 'balanced-comfort' ? '#002D5B' : '#0A344C'
 
   const [saving, setSaving] = useState(false)
   const [type, setType] = useState<AssetType>(initialType)

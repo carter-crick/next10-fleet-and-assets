@@ -36,7 +36,7 @@ export default function FleetDashboard({ company }: { company: Company }) {
   const [maintStats, setMaintStats] = useState<MaintenanceStats | null>(null)
   const [maintHistoryOpen, setMaintHistoryOpen] = useState(false)
 
-  const companyColor = company === 'balanced-comfort' ? '#002D5B' : '#0f766e'
+  const companyColor = company === 'balanced-comfort' ? '#002D5B' : '#0A344C'
 
   useEffect(() => {
     fetch(`/api/assets?company=${company}`)

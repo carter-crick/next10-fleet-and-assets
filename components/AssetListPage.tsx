@@ -55,7 +55,7 @@ export default function AssetListPage({ company, type }: { company: Company; typ
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<AssetStatus | 'all'>('all')
 
-  const companyColor = company === 'balanced-comfort' ? '#002D5B' : '#0f766e'
+  const companyColor = company === 'balanced-comfort' ? '#002D5B' : '#0A344C'
   const singularLabel = TYPE_LABEL[type].slice(0, -1)
 
   useEffect(() => {

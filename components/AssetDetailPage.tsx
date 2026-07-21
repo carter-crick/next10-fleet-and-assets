@@ -119,7 +119,7 @@ const inputCls = 'block w-full border border-gray-300 rounded-lg px-3 py-2 text-
 
 export default function AssetDetailPage({ company, id }: { company: Company; id: string }) {
   const router = useRouter()
-  const companyColor = company === 'balanced-comfort' ? '#002D5B' : '#0f766e'
+  const companyColor = company === 'balanced-comfort' ? '#002D5B' : '#0A344C'
 
   const [asset, setAsset] = useState<Asset | null>(null)
   const [maintenance, setMaintenance] = useState<MaintenanceRecord[]>([])

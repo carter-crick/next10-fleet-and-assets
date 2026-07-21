@@ -7,7 +7,7 @@ import { signOutAction } from '@/app/actions'
 
 const COMPANY_CONFIG = {
   'balanced-comfort': { name: 'Balanced Comfort', bgColor: 'bg-[#002D5B]', textColor: 'text-[#002D5B]' },
-  'sailors-air': { name: "Sailor's Air & Plumbing", bgColor: 'bg-teal-700', textColor: 'text-teal-700' },
+  'sailors-air': { name: "Sailor's Air & Plumbing", bgColor: 'bg-[#0A344C]', textColor: 'text-[#0A344C]' },
 } as const
 
 export default function CompanyNav({ company }: { company: Company }) {
