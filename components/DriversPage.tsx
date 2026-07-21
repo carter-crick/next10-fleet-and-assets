@@ -75,7 +75,7 @@ export default function DriversPage({ company }: { company: Company }) {
   useEffect(() => {
     fetch(`/api/drivers?company=${company}`)
       .then(r => r.json())
-      .then(data => { setDrivers(data); setLoading(false) })
+      .then(data => { setDrivers([...data].sort((a, b) => a.name.localeCompare(b.name))); setLoading(false) })
   }, [company])
 
   useEffect(() => {
