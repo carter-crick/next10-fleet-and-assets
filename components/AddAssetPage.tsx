@@ -22,7 +22,7 @@ const STATUS_OPTIONS: { value: AssetStatus; label: string }[] = [
 const EMPTY_FORM = {
   name: '', make: '', model: '', year: '', vin: '', serialNumber: '',
   licensePlate: '', licensePlateExpiration: '', color: '', lender: '',
-  fuelCardNumber: '', inServiceDate: '',
+  fuelCardNumber: '', nttaNumber: '', inServiceDate: '',
   status: 'active' as AssetStatus,
   assignedTo: '', location: '', mileage: '',
   purchaseDate: '', purchasePrice: '',
@@ -69,6 +69,7 @@ export default function AddAssetPage({ company }: { company: Company }) {
         ...(form.color                  && { color: form.color }),
         ...(form.lender                 && { lender: form.lender }),
         ...(form.fuelCardNumber         && { fuelCardNumber: form.fuelCardNumber }),
+        ...(form.nttaNumber             && { nttaNumber: form.nttaNumber }),
         ...(form.inServiceDate          && { inServiceDate: form.inServiceDate }),
         status: form.status,
         ...(form.assignedTo  && { assignedTo: form.assignedTo }),
@@ -199,6 +200,12 @@ export default function AddAssetPage({ company }: { company: Company }) {
                   <div>
                     <label className={labelCls}>Fuel Card #</label>
                     <input type="text" value={form.fuelCardNumber} onChange={e => set('fuelCardNumber', e.target.value)} placeholder="e.g. 40972" className={inputCls} />
+                  </div>
+                )}
+                {isVehicle && (
+                  <div>
+                    <label className={labelCls}>NTTA # (Toll)</label>
+                    <input type="text" value={form.nttaNumber} onChange={e => set('nttaNumber', e.target.value)} placeholder="e.g. 866000012345" className={inputCls} />
                   </div>
                 )}
               </>}

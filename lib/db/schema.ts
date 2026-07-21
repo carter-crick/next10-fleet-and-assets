@@ -15,6 +15,7 @@ export const assets = pgTable('assets', {
   color: text('color'),
   lender: text('lender'),
   fuelCardNumber: text('fuel_card_number'),
+  nttaNumber: text('ntta_number'),
   inServiceDate: text('in_service_date'),
   outOfServiceDate: text('out_of_service_date'),
   oneStepDeviceId: text('one_step_device_id'),

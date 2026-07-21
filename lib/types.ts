@@ -17,6 +17,7 @@ export interface Asset {
   color?: string
   lender?: string
   fuelCardNumber?: string
+  nttaNumber?: string
   inServiceDate?: string
   outOfServiceDate?: string
   oneStepDeviceId?: string

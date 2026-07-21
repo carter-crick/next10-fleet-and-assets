@@ -485,6 +485,10 @@ export default function AssetDetailPage({ company, id }: { company: Company; id:
                   <label className="block text-sm font-medium text-gray-700 mb-1">Fuel Card #</label>
                   <input type="text" value={editForm.fuelCardNumber || ''} onChange={e => setEdit('fuelCardNumber', e.target.value)} placeholder="e.g. 40972" className={inputCls} />
                 </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">NTTA # (Toll)</label>
+                  <input type="text" value={editForm.nttaNumber || ''} onChange={e => setEdit('nttaNumber', e.target.value)} placeholder="e.g. 866000012345" className={inputCls} />
+                </div>
               </>}
               {!isVehicleOrTrailer && (
                 <div>
@@ -594,6 +598,7 @@ export default function AssetDetailPage({ company, id }: { company: Company; id:
                   <InfoRow label="VIN"           value={asset.vin} />
                   <InfoRow label="Lender"        value={asset.lender} />
                   {asset.fuelCardNumber && <InfoRow label="Fuel Card #" value={asset.fuelCardNumber} />}
+                  {asset.nttaNumber && <InfoRow label="NTTA # (Toll)" value={asset.nttaNumber} />}
                 </>}
                 {!isVehicleOrTrailer && (
                   <InfoRow label="Serial Number" value={asset.serialNumber} />
