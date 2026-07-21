@@ -61,7 +61,7 @@ export default function AssetListPage({ company, type }: { company: Company; typ
   useEffect(() => {
     fetch(`/api/assets?company=${company}&type=${type}`)
       .then(r => r.json())
-      .then(data => { setAssets(data); setLoading(false) })
+      .then(data => { setAssets([...data].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))); setLoading(false) })
   }, [company, type])
 
   const filtered = assets.filter(a => {
