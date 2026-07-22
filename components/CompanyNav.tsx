@@ -6,7 +6,7 @@ import type { Company } from '@/lib/types'
 import { signOutAction } from '@/app/actions'
 
 const COMPANY_CONFIG = {
-  'balanced-comfort': { name: 'Balanced Comfort', bgColor: 'bg-[#002D5B]', activeTab: 'bg-white text-[#002D5B]' },
+  'balanced-comfort': { name: 'Balanced Comfort', bgColor: 'bg-[#002D5B]', activeTab: 'bg-[#82C342] text-white' },
   'sailors-air': { name: "Sailor's Air & Plumbing", bgColor: 'bg-[#0A344C]', activeTab: 'bg-[#F7941D] text-white' },
 } as const
 
