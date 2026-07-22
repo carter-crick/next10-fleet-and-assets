@@ -15,7 +15,7 @@ const FleetMapInner = dynamic(() => import('./FleetMapInner'), {
 })
 
 export default function FleetMapPage({ company }: { company: Company }) {
-  const companyColor = company === 'balanced-comfort' ? '#002D5B' : '#0A344C'
+  const companyColor = company === 'balanced-comfort' ? '#002D5B' : '#3E7A9A'
 
   return (
     <div className="h-screen flex flex-col">

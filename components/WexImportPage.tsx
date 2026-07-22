@@ -14,7 +14,7 @@ interface ImportResult {
 }
 
 export default function WexImportPage({ company }: { company: Company }) {
-  const companyColor = company === 'balanced-comfort' ? '#002D5B' : '#0A344C'
+  const companyColor = company === 'balanced-comfort' ? '#002D5B' : '#3E7A9A'
   const [file, setFile]         = useState<File | null>(null)
   const [dragging, setDragging] = useState(false)
   const [loading, setLoading]   = useState(false)

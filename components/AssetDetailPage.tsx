@@ -57,7 +57,8 @@ function MaintFormFields({ form, onChange, isVehicle, companyColor }: {
   isVehicle: boolean
   companyColor: string
 }) {
-  const inputCls = 'block w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#002D5B]'
+  const ringCls = companyColor === '#002D5B' ? 'focus:ring-[#002D5B]' : 'focus:ring-[#3E7A9A]'
+  const inputCls = `block w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 ${ringCls}`
   function toggleService(s: string) {
     onChange({ services: form.services.includes(s) ? form.services.filter(x => x !== s) : [...form.services, s] })
   }
@@ -101,7 +102,7 @@ function MaintFormFields({ form, onChange, isVehicle, companyColor }: {
           <label className="block text-xs font-medium text-gray-600 mb-1">Cost</label>
           <div className="relative">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">$</span>
-            <input type="number" value={form.cost} onChange={e => onChange({ cost: e.target.value })} placeholder="0.00" min="0" step="0.01" className="block w-full border border-gray-300 rounded-lg pl-6 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#002D5B]" />
+            <input type="number" value={form.cost} onChange={e => onChange({ cost: e.target.value })} placeholder="0.00" min="0" step="0.01" className={`block w-full border border-gray-300 rounded-lg pl-6 pr-3 py-2 text-sm focus:outline-none focus:ring-2 ${ringCls}`} />
           </div>
         </div>
         {isVehicle && (
@@ -115,11 +116,11 @@ function MaintFormFields({ form, onChange, isVehicle, companyColor }: {
   )
 }
 
-const inputCls = 'block w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#002D5B]'
-
 export default function AssetDetailPage({ company, id }: { company: Company; id: string }) {
   const router = useRouter()
-  const companyColor = company === 'balanced-comfort' ? '#002D5B' : '#0A344C'
+  const companyColor = company === 'balanced-comfort' ? '#002D5B' : '#3E7A9A'
+  const ringCls = company === 'balanced-comfort' ? 'focus:ring-[#002D5B]' : 'focus:ring-[#3E7A9A]'
+  const inputCls = `block w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 ${ringCls}`
 
   const [asset, setAsset] = useState<Asset | null>(null)
   const [maintenance, setMaintenance] = useState<MaintenanceRecord[]>([])
@@ -549,7 +550,7 @@ export default function AssetDetailPage({ company, id }: { company: Company; id:
                 <label className="block text-sm font-medium text-gray-700 mb-1">Purchase Price</label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
-                  <input type="number" value={editForm.purchasePrice || ''} onChange={e => setEdit('purchasePrice', e.target.value ? parseFloat(e.target.value) : undefined)} min="0" step="0.01" className="block w-full border border-gray-300 rounded-lg pl-7 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#002D5B]" />
+                  <input type="number" value={editForm.purchasePrice || ''} onChange={e => setEdit('purchasePrice', e.target.value ? parseFloat(e.target.value) : undefined)} min="0" step="0.01" className={`block w-full border border-gray-300 rounded-lg pl-7 pr-3 py-2 text-sm focus:outline-none focus:ring-2 ${ringCls}`} />
                 </div>
               </div>
               <div>
@@ -562,7 +563,7 @@ export default function AssetDetailPage({ company, id }: { company: Company; id:
               </div>
               <div className="sm:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-                <textarea value={editForm.notes || ''} onChange={e => setEdit('notes', e.target.value)} rows={3} className="block w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#002D5B] resize-none" />
+                <textarea value={editForm.notes || ''} onChange={e => setEdit('notes', e.target.value)} rows={3} className={`block w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 ${ringCls} resize-none`} />
               </div>
             </div>
           </div>
@@ -1005,7 +1006,7 @@ export default function AssetDetailPage({ company, id }: { company: Company; id:
                       value={inspForm.notes}
                       onChange={e => setInspForm(f => ({ ...f, notes: e.target.value }))}
                       rows={2} placeholder="Inspection notes, issues found, overall condition..."
-                      className="block w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#002D5B] resize-none"
+                      className={`block w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 ${ringCls} resize-none`}
                     />
                   </div>
                 </div>

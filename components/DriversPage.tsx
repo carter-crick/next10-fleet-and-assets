@@ -52,7 +52,7 @@ function scoreBar(score: number) {
 }
 
 export default function DriversPage({ company }: { company: Company }) {
-  const companyColor = company === 'balanced-comfort' ? '#002D5B' : '#0A344C'
+  const companyColor = company === 'balanced-comfort' ? '#002D5B' : '#3E7A9A'
   const [tab, setTab] = useState<'roster' | 'reports'>('roster')
 
   // ── Roster state ──────────────────────────────────────────────────────────

@@ -6,13 +6,13 @@ import type { Company } from '@/lib/types'
 import { signOutAction } from '@/app/actions'
 
 const COMPANY_CONFIG = {
-  'balanced-comfort': { name: 'Balanced Comfort', bgColor: 'bg-[#002D5B]', textColor: 'text-[#002D5B]' },
-  'sailors-air': { name: "Sailor's Air & Plumbing", bgColor: 'bg-[#0A344C]', textColor: 'text-[#0A344C]' },
+  'balanced-comfort': { name: 'Balanced Comfort', bgColor: 'bg-[#002D5B]', activeTab: 'bg-white text-[#002D5B]' },
+  'sailors-air': { name: "Sailor's Air & Plumbing", bgColor: 'bg-[#0A344C]', activeTab: 'bg-[#F7941D] text-white' },
 } as const
 
 export default function CompanyNav({ company }: { company: Company }) {
   const pathname = usePathname()
-  const { name, bgColor, textColor } = COMPANY_CONFIG[company]
+  const { name, bgColor, activeTab } = COMPANY_CONFIG[company]
   const base = `/${company}`
 
   const tabs = [
@@ -44,7 +44,7 @@ export default function CompanyNav({ company }: { company: Company }) {
               href={tab.href}
               className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
                 isActive(tab.href)
-                  ? `bg-white ${textColor}`
+                  ? activeTab
                   : 'text-white/80 hover:text-white hover:bg-white/20'
               }`}
             >

@@ -34,7 +34,7 @@ export default function AddAssetPage({ company }: { company: Company }) {
   const searchParams = useSearchParams()
   const initialType = (searchParams.get('type') as AssetType) || 'vehicle'
 
-  const companyColor = company === 'balanced-comfort' ? '#002D5B' : '#0A344C'
+  const companyColor = company === 'balanced-comfort' ? '#002D5B' : '#3E7A9A'
 
   const [saving, setSaving] = useState(false)
   const [type, setType] = useState<AssetType>(initialType)
@@ -98,7 +98,8 @@ export default function AddAssetPage({ company }: { company: Company }) {
   const isVehicleOrTrailer = type === 'vehicle' || type === 'trailer'
   const isVehicle = type === 'vehicle'
 
-  const inputCls = 'block w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#002D5B]'
+  const ringCls = company === 'balanced-comfort' ? 'focus:ring-[#002D5B]' : 'focus:ring-[#3E7A9A]'
+  const inputCls = `block w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 ${ringCls}`
   const labelCls = 'block text-sm font-medium text-gray-700 mb-1'
 
   return (
@@ -278,7 +279,7 @@ export default function AddAssetPage({ company }: { company: Company }) {
                 <label className={labelCls}>Purchase Price</label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
-                  <input type="number" value={form.purchasePrice} onChange={e => set('purchasePrice', e.target.value)} placeholder="0.00" min="0" step="0.01" className="block w-full border border-gray-300 rounded-lg pl-7 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#002D5B]" />
+                  <input type="number" value={form.purchasePrice} onChange={e => set('purchasePrice', e.target.value)} placeholder="0.00" min="0" step="0.01" className={`block w-full border border-gray-300 rounded-lg pl-7 pr-3 py-2 text-sm focus:outline-none focus:ring-2 ${ringCls}`} />
                 </div>
               </div>
               <div>
@@ -294,7 +295,7 @@ export default function AddAssetPage({ company }: { company: Company }) {
             <textarea
               value={form.notes} onChange={e => set('notes', e.target.value)}
               rows={3} placeholder="Any additional notes..."
-              className="block w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#002D5B] resize-none"
+              className={`block w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 ${ringCls} resize-none`}
             />
           </section>
 
